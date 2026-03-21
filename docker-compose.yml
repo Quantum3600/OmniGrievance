@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  # PostGIS Database for spatial querying and public records
+  db:
+    image: postgis/postgis:15-3.3
+    container_name: omnigrievance-db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: omnigrievance
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Redis for millisecond-latency dashboards
+  redis:
+    image: redis:7-alpine
+    container_name: omnigrievance-cache
+    ports:
+      - "6379:6379"
+
+  # FastAPI Backend Orchestration Engine
+  backend:
+    build: ./backend
+    container_name: omnigrievance-backend
+    environment:
+      DATABASE_URL: postgresql://user:password@db:5432/omnigrievance
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+
+  # Next.js PWA Frontend
+  frontend:
+    build: ./frontend
+    container_name: omnigrievance-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
