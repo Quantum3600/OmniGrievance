@@ -1,0 +1,5 @@
+app/(admin)/dashboard/page.tsx(95,16): error TS2304: Cannot find name 'MapPin'.
+app/(admin)/dashboard/page.tsx(135,12): error TS2304: Cannot find name 'CardFooter'.
+app/(admin)/dashboard/page.tsx(136,14): error TS2304: Cannot find name 'Button'.
+app/(admin)/dashboard/page.tsx(136,82): error TS2304: Cannot find name 'Button'.
+app/(admin)/dashboard/page.tsx(137,13): error TS2304: Cannot find name 'CardFooter'.
