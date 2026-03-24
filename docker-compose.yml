@@ -5,14 +5,17 @@ services:
   db:
     image: postgis/postgis:15-3.3
     container_name: omnigrievance-db
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: omnigrievance
+    env_file:
+      - ./backend/.env
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d omnigrievance" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   # Redis for millisecond-latency dashboards
   redis:
@@ -25,14 +28,15 @@ services:
   backend:
     build: ./backend
     container_name: omnigrievance-backend
-    environment:
-      DATABASE_URL: postgresql://user:password@db:5432/omnigrievance
-      REDIS_URL: redis://redis:6379
+    env_file:
+      - ./backend/.env
     ports:
       - "8000:8000"
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   # Next.js PWA Frontend
   frontend:

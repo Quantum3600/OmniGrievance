@@ -21,9 +21,25 @@ class User(Base):
     __tablename__ = "users"
     
     id = Column(Integer, primary_key=True, index=True)
-    phone_number = Column(String(15), unique=True, index=True, nullable=False)
-    name = Column(String(100), nullable=True)
     role = Column(Enum(RoleEnum), default=RoleEnum.CITIZEN, nullable=False)
+    
+    # --- Staff Authentication Fields ---
+    login_id = Column(String(100), unique=True, index=True, nullable=True)
+    hashed_password = Column(String(255), nullable=True)
+    
+    # --- Citizen Integration Fields ---
+    email = Column(String(150), unique=True, index=True, nullable=True)
+    
+    # --- Profile Demographic Context ---
+    name = Column(String(100), nullable=True)
+    phone = Column(String(20), nullable=True)
+    address = Column(String(255), nullable=True)
+    pin = Column(String(20), nullable=True)
+    district = Column(String(100), nullable=True)
+    state = Column(String(100), nullable=True)
+    country = Column(String(50), default="INDIA", nullable=False)
+    
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     reward_points = Column(Integer, default=0, nullable=False)
     
     # Relation to grievances if citizen
