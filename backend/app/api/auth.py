@@ -23,20 +23,6 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str
 
-class LoginPasswordRequest(BaseModel):
-    role: str
-    identifier: str
-    password: str
-
-class RegisterCitizenRequest(BaseModel):
-    fullName: str
-    email: str
-    mobile: str
-    aadhaar: str
-    address: str
-    pincode: str
-    password: str
-
 # --- JWT Mock Utility ---
 # Real implementation would use python-jose or pyjwt
 def create_mock_jwt(email: str, role: str) -> str:
