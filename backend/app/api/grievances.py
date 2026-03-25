@@ -1,5 +1,5 @@
-import os
 import asyncio
+import datetime
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks
 from pydantic import BaseModel
@@ -12,7 +12,13 @@ from app.database import get_db, AsyncSessionLocal
 from app.models import User, RoleEnum, Grievance, GrievanceStatusEnum, GrievanceCategoryEnum
 from app.api.auth import get_current_user
 
+EMERGENCY_KEYWORDS = ["live wire", "gas leak", "structural collapse", "fire", "accident", "medical emergency"]
+
 router = APIRouter(prefix="/grievance", tags=["Grievances", "6-Step-Tracker"])
+
+@router.get("/categories")
+async def get_categories():
+    return {"categories": [cat.value for cat in GrievanceCategoryEnum]}
 
 class AssignGroupRequest(BaseModel):
     employee_login_ids: List[str]
@@ -56,7 +62,8 @@ async def create_grievance(
         location_lng=location_lng,
         image_url=image_url,
         audio_url=audio_url,
-        status=GrievanceStatusEnum.POSTED # Step 1 initialization
+        status=GrievanceStatusEnum.POSTED, # Step 1 initialization
+        is_emergency=any(kw in description.lower() for kw in EMERGENCY_KEYWORDS)
     )
     db.add(new_grievance)
     await db.commit()
@@ -82,7 +89,7 @@ async def get_my_grievances(current_user: User = Depends(get_current_user), db: 
         for emp in g.assigned_employees:
             assigned_team.append({
                 "name": emp.name,
-                "department_category": emp.department_category.value if emp.department_category else "UNCLASSIFIED"
+                "department_category": emp.department_category.value if emp.department_category else "OTHER"
             })
             
         serialized_data.append({
@@ -141,6 +148,38 @@ async def admin_accept_grievance(grievance_id: int, current_user: User = Depends
     return {"message": f"Successfully shifted Ticket #{grievance_id} structurally into Step 2: ACCEPTED."}
 
 
+@router.get("/admin/all-grievances")
+async def get_all_grievances_admin(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if current_user.role != RoleEnum.ADMIN:
+        raise HTTPException(status_code=403, detail="Unauthorized access to system-wide grievance matrix.")
+        
+    result = await db.execute(
+        select(Grievance)
+        .options(selectinload(Grievance.assigned_employees))
+        .order_by(Grievance.created_at.desc())
+    )
+    grievances = result.scalars().all()
+    
+    def serialize_g(g):
+        return {
+            "ticket_id": g.id,
+            "description": g.description,
+            "category": g.category.value,
+            "status": g.status.value,
+            "is_emergency": g.is_emergency,
+            "created_at": g.created_at,
+            "assigned_team": [
+                {"name": emp.name, "login_id": emp.login_id} for emp in g.assigned_employees
+            ]
+        }
+    
+    return {
+        "unassigned": [serialize_g(g) for g in grievances if g.status in [GrievanceStatusEnum.POSTED, GrievanceStatusEnum.ACCEPTED]],
+        "active": [serialize_g(g) for g in grievances if g.status in [GrievanceStatusEnum.ASSIGNED, GrievanceStatusEnum.REACHED, GrievanceStatusEnum.IN_PROGRESS]],
+        "completed": [serialize_g(g) for g in grievances if g.status in [GrievanceStatusEnum.RESOLVED, GrievanceStatusEnum.FAILED]]
+    }
+
+
 @router.get("/admin/dashboard")
 async def admin_dashboard(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     if current_user.role != RoleEnum.ADMIN:
@@ -167,16 +206,55 @@ async def admin_dashboard(current_user: User = Depends(get_current_user), db: As
             "employee_id_tag": emp.login_id,
             "email": emp.email,
             "name": emp.name,
-            "category": emp.department_category.value if emp.department_category else "UNCLASSIFIED",
+            "category": emp.department_category.value if emp.department_category else "OTHER",
             "active_tasks": active.scalar() or 0,
             "solved_tasks": solved.scalar() or 0,
-            "failed_tasks": failed.scalar() or 0
+            "failed_tasks": failed.scalar() or 0,
+            "is_busy": emp.is_busy
         })
         
+    # Fetch active emergencies (Top 5 latest)
+    emergencies_res = await db.execute(
+        select(Grievance)
+        .where((Grievance.is_emergency == True) & (Grievance.status.in_([GrievanceStatusEnum.POSTED, GrievanceStatusEnum.ACCEPTED, GrievanceStatusEnum.ASSIGNED, GrievanceStatusEnum.REACHED, GrievanceStatusEnum.IN_PROGRESS])))
+        .order_by(Grievance.created_at.desc())
+        .limit(5)
+    )
+    emergencies = emergencies_res.scalars().all()
+    
+    active_emergencies = [
+        {
+            "ticket_id": g.id,
+            "description": g.description,
+            "status": g.status.value,
+            "created_at": g.created_at
+        } for g in emergencies
+    ]
+
+    # Integrated Heatmap Data Matrix
+    all_active_res = await db.execute(
+        select(Grievance)
+        .where(Grievance.status != GrievanceStatusEnum.RESOLVED)
+        .where(Grievance.status != GrievanceStatusEnum.FAILED)
+    )
+    all_active = all_active_res.scalars().all()
+    
+    heatmap_data = [
+        {
+            "lat": g.location_lat,
+            "lng": g.location_lng,
+            "is_emergency": g.is_emergency,
+            "status": g.status.value,
+            "weight": 5 if g.is_emergency else 2
+        } for g in all_active if g.location_lat and g.location_lng
+    ]
+
     return {
         "unassigned_queue": unassigned_result.scalars().all(),
         "employee_performance_matrix": employee_stats,
-        "category_workforce_distribution": category_counts
+        "category_workforce_distribution": category_counts,
+        "active_emergencies": active_emergencies,
+        "heatmap_data": heatmap_data
     }
 
 
@@ -199,10 +277,27 @@ async def assign_grievance(grievance_id: int, payload: AssignGroupRequest, curre
     if not grievance:
         raise HTTPException(status_code=404, detail="Invalid Support Ticket numeric sequence.")
         
+    # Mandatory check for busy status
+    busy_employees = [e.login_id for e in employees if e.is_busy]
+    if busy_employees:
+        raise HTTPException(status_code=400, detail=f"The following employees are currently BUSY on another task: {', '.join(busy_employees)}. They must finish their current work before being assigned a new one.")
+
     # Bump Tracker immediately to Step 3
     grievance.status = GrievanceStatusEnum.ASSIGNED
     grievance.assigned_employees = employees
     grievance.admin_id = current_user.id
+    
+    # Mark team members as busy instantly
+    now = datetime.datetime.now()
+    for emp in employees:
+        # If they were available, record the idle time
+        if not emp.is_busy:
+            delta = (now - emp.last_duty_toggle_at).total_seconds()
+            emp.available_seconds_month += int(delta)
+        
+        emp.is_busy = True
+        emp.current_task_started_at = now
+        emp.last_duty_toggle_at = now
     
     await db.commit()
     return {"message": f"Successfully dictated active task custody. Tracker bumped to STEP 3: ASSIGNED.", "assigned_members": len(employees)}
@@ -235,17 +330,39 @@ async def employee_dashboard(current_user: User = Depends(get_current_user), db:
             "employee_id": current_user.login_id,
             "email": current_user.email,
             "name": current_user.name,
-            "department_category": current_user.department_category.value if current_user.department_category else "UNCLASSIFIED",
+            "department_category": current_user.department_category.value if current_user.department_category else "OTHER",
             "active_assigned_tasks": active.scalars().all(),
             "total_solved": solved.scalar() or 0,
-            "total_failed": failed.scalar() or 0
+            "total_failed": failed.scalar() or 0,
+            "is_busy": current_user.is_busy,
+            "work_seconds_month": current_user.work_seconds_month,
+            "available_seconds_month": current_user.available_seconds_month,
+            "current_task_started_at": current_user.current_task_started_at.isoformat() if current_user.current_task_started_at else None
         },
         "department_group": {
-            "category": current_user.department_category.value if current_user.department_category else "UNCLASSIFIED",
+            "category": current_user.department_category.value if current_user.department_category else "OTHER",
             "co_workers": co_workers,
             "group_active_jobs": group_jobs_result.scalars().all()
         }
     }
+
+
+@router.put("/employee/toggle-status")
+async def toggle_employee_status(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if current_user.role != RoleEnum.EMPLOYEE:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+    
+    now = datetime.datetime.now()
+    # If they are currently available, we are toggling to BUSY. Record idle availability.
+    if not current_user.is_busy:
+        delta = (now - current_user.last_duty_toggle_at).total_seconds()
+        current_user.available_seconds_month += int(delta)
+    
+    current_user.is_busy = not current_user.is_busy
+    current_user.last_duty_toggle_at = now
+    
+    await db.commit()
+    return {"is_busy": current_user.is_busy}
 
 
 @router.put("/employee/ticket/{grievance_id}/reached")
@@ -277,7 +394,34 @@ async def employee_reached_site(
     # Securely append the Automated background sleep function natively tracking into Step 5
     background_tasks.add_task(auto_advance_to_in_progress, grievance_id)
     
-    return {"message": "Site physically reached! Tracker locked to STEP 4. Operating logic will automatically sequentially default into Step 5 (IN POGRESS) exactly 5 minutes from this exact execution block."}
+    return {"message": "Site physically reached! Status updated to 'Employ Reached'. It will automatically transition to 'Work under process' in 5 minutes."}
+
+
+@router.put("/employee/ticket/{grievance_id}/done")
+async def employee_work_done(
+    grievance_id: int, 
+    current_user: User = Depends(get_current_user), 
+    db: AsyncSession = Depends(get_db)
+):
+    if current_user.role != RoleEnum.EMPLOYEE:
+        raise HTTPException(status_code=403, detail="Unauthorized.")
+        
+    g_res = await db.execute(select(Grievance).options(selectinload(Grievance.assigned_employees)).where(Grievance.id == grievance_id))
+    grievance = g_res.scalars().first()
+    
+    if not grievance:
+        raise HTTPException(status_code=404, detail="Ticket completely unfound.")
+        
+    assigned_ids = [emp.id for emp in grievance.assigned_employees]
+    if current_user.id not in assigned_ids:
+        raise HTTPException(status_code=403, detail="Unauthorized access to this ticket.")
+        
+    if grievance.status != GrievanceStatusEnum.IN_PROGRESS:
+        raise HTTPException(status_code=400, detail="Ticket must be 'IN_PROGRESS' to mark as 'WORK_DONE'.")
+        
+    grievance.status = GrievanceStatusEnum.WORK_DONE
+    await db.commit()
+    return {"message": "Work done! Status updated to 'Work done'. Now proceed to finalize resolution with proof."}
 
 
 @router.put("/employee/resolve/{grievance_id}")
@@ -298,11 +442,13 @@ async def resolve_grievance(
     if not grievance:
         raise HTTPException(status_code=404, detail="Ticket completely unfound.")
         
-    # Check if current_user is physically explicitly mapped within the assigned group association matrix
     assigned_ids = [emp.id for emp in grievance.assigned_employees]
     if current_user.id not in assigned_ids:
         raise HTTPException(status_code=404, detail="Ticket not detected in your exact group's custody queue.")
         
+    if grievance.status != GrievanceStatusEnum.WORK_DONE:
+        raise HTTPException(status_code=400, detail="CRITICAL: You must mark the work as 'DONE' before you can finalize the 'Problem Resolved' status.")
+
     if status not in ["SOLVED", "FAILED"]:
         raise HTTPException(status_code=400, detail="CRITICAL: Invalid termination status string. Must exactly be SOLVED or FAILED.")
         
@@ -313,5 +459,55 @@ async def resolve_grievance(
     grievance.resolution_proof_url = f"/uploads/proofs/{resolution_proof_photo.filename}"
     grievance.resolution_comments = comments
     
+    # Instantly revert team members back to available state
+    now = datetime.datetime.now()
+    for emp in grievance.assigned_employees:
+        if emp.current_task_started_at:
+            work_delta = (now - emp.current_task_started_at).total_seconds()
+            emp.work_seconds_month += int(work_delta)
+            # Work time also counts as available time as per requirement
+            emp.available_seconds_month += int(work_delta)
+        
+        emp.is_busy = False
+        emp.current_task_started_at = None
+        emp.last_duty_toggle_at = now
+        
     await db.commit()
     return {"message": f"STEP 6 ACHIVED: Team Member securely terminated ticket #{grievance_id} permanently appending visual cryptographic completion proof."}
+
+
+@router.get("/employee/leaderboard")
+async def employee_leaderboard(
+    category: Optional[str] = None, 
+    current_user: User = Depends(get_current_user), 
+    db: AsyncSession = Depends(get_db)
+):
+    if current_user.role != RoleEnum.EMPLOYEE:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+        
+    target_category = category if category else (current_user.department_category.value if current_user.department_category else None)
+    
+    if not target_category:
+        return {"category": "OTHER", "leaderboard": []}
+        
+    emp_res = await db.execute(select(User).where((User.role == RoleEnum.EMPLOYEE) & (User.department_category == target_category)))
+    employees = emp_res.scalars().all()
+    
+    leaderboard = []
+    for emp in employees:
+        solved = await db.execute(select(func.count(Grievance.id)).join(Grievance.assigned_employees).where((User.id == emp.id) & (Grievance.status == GrievanceStatusEnum.RESOLVED)))
+        count = solved.scalar() or 0
+        leaderboard.append({
+            "employee_id": emp.login_id,
+            "name": emp.name,
+            "avatar": "",
+            "solved_count": count,
+            "is_me": emp.id == current_user.id
+        })
+        
+    leaderboard.sort(key=lambda x: x["solved_count"], reverse=True)
+    
+    for i, itm in enumerate(leaderboard):
+        itm["rank"] = i + 1
+        
+    return {"category": target_category, "leaderboard": leaderboard}

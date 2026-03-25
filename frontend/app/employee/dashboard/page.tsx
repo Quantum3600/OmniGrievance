@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { apiClient } from "@/lib/api-client";
 import Link from "next/link";
 import {
   Card,
@@ -23,30 +24,38 @@ import {
   ToggleLeft,
   ToggleRight,
   TrendingUp,
+  Clock,
+  Zap,
 } from "lucide-react";
 
-// ─── Mock Data ──────────────────────────────────────────────────────────────
-const MOCK_EMPLOYEE = {
-  name: "Rajesh Kumar",
-  id: "EMP-00247",
-  avatar: "",
-  category: "Public Works",
-  role: "Nodal Officer",
-  joinDate: "2024-08-12",
-  leaderboardRank: 5,
+// --- Active Timer Component ---
+const ActiveTimer = ({ startTime }: { startTime: string }) => {
+  const [elapsed, setElapsed] = useState("");
+
+  useEffect(() => {
+    const start = new Date(startTime).getTime();
+    
+    const update = () => {
+      const now = new Date().getTime();
+      const diff = now - start;
+      const hours = Math.floor(diff / 3600000);
+      const minutes = Math.floor((diff % 3600000) / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+      
+      setElapsed(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+    };
+
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [startTime]);
+
+  return <span className="text-4xl font-black font-mono tracking-tighter">{elapsed}</span>;
 };
 
-const MOCK_STATS = {
-  totalWork: 142,
-  openGrievances: 18,
-  resolvedGrievances: 124,
-};
-
-// Generate 16 weeks (112 days) of mock heatmap data
 const generateHeatmapData = () => {
   const data: number[] = [];
   for (let i = 0; i < 112; i++) {
-    // 0 = no activity, 1-4 = intensity levels
     const rand = Math.random();
     if (rand < 0.2) data.push(0);
     else if (rand < 0.45) data.push(1);
@@ -56,7 +65,6 @@ const generateHeatmapData = () => {
   }
   return data;
 };
-const HEATMAP_DATA = generateHeatmapData();
 
 const HEATMAP_COLORS: Record<number, string> = {
   0: "bg-slate-100",
@@ -71,9 +79,62 @@ const DAYS = ["Mon", "", "Wed", "", "Fri", "", ""];
 // ─── Component ──────────────────────────────────────────────────────────────
 export default function EmployeeDashboardPage() {
   const [isAvailable, setIsAvailable] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [empData, setEmpData] = useState<any>(null);
+  const [heatmapData, setHeatmapData] = useState<number[]>([]);
 
-  const emp = MOCK_EMPLOYEE;
-  const stats = MOCK_STATS;
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const res = await apiClient("/grievance/employee/dashboard");
+        setEmpData(res);
+        setIsAvailable(!res.personal_record.is_busy);
+        setHeatmapData(generateHeatmapData()); 
+      } catch (err) {
+        console.error("Failed to fetch dashboard data", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  const record = empData?.personal_record || {};
+  
+  const emp = {
+    name: record.name || "Employee",
+    id: record.employee_id || "EMP-000",
+    avatar: "",
+    category: record.department_category?.replace(/_/g, " ") || "Unassigned",
+    role: "Nodal Officer",
+    joinDate: new Date().toISOString(),
+    leaderboardRank: Math.floor(Math.random() * 10) + 1, // Mock rank
+  };
+
+  const activeCount = record.active_assigned_tasks?.length || 0;
+  const solvedCount = record.total_solved || 0;
+  const failedCount = record.total_failed || 0;
+
+  const stats = {
+    totalWork: activeCount + solvedCount + failedCount,
+    openGrievances: activeCount,
+    resolvedGrievances: solvedCount,
+    workHours: (record.work_seconds_month || 0) / 3600,
+    availableHours: (record.available_seconds_month || 0) / 3600,
+    currentTaskStart: record.current_task_started_at,
+  };
+
+  const WORK_GOAL = 250;
+  const AVAIL_GOAL = 350;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
@@ -106,7 +167,7 @@ export default function EmployeeDashboardPage() {
               <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-green-600 text-white text-2xl font-black">
                 {emp.name
                   .split(" ")
-                  .map((n) => n[0])
+                  .map((n: string) => n[0])
                   .join("")}
               </AvatarFallback>
             </Avatar>
@@ -129,7 +190,14 @@ export default function EmployeeDashboardPage() {
 
             {/* Status Toggle */}
             <button
-              onClick={() => setIsAvailable(!isAvailable)}
+              onClick={async () => {
+                try {
+                  const res = await apiClient("/grievance/employee/toggle-status", { method: "PUT" });
+                  setIsAvailable(!res.is_busy);
+                } catch (err) {
+                  console.error("Failed to toggle status", err);
+                }
+              }}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-sm border-2 ${
                 isAvailable
                   ? "bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100"
@@ -200,6 +268,83 @@ export default function EmployeeDashboardPage() {
           </Card>
         </div>
 
+        {/* ───────────────── 2.5 Time Tracking Quotas ───────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <Card className="shadow-md border-slate-200 overflow-hidden relative">
+                <div className="absolute top-0 right-0 p-4">
+                    <TrendingUp className="w-8 h-8 text-blue-100" />
+                </div>
+                <CardHeader className="pb-0">
+                    <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <Clock className="w-5 h-5 text-blue-600" />
+                        Monthly Work Quota
+                    </CardTitle>
+                    <CardDescription className="font-bold">Goal: {WORK_GOAL} Hours</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
+                    <div className="flex justify-between items-end mb-2">
+                        <span className="text-3xl font-black text-slate-900">{stats.workHours.toFixed(1)} <span className="text-sm text-slate-400">HRS</span></span>
+                        <span className="text-sm font-bold text-blue-600">{Math.min(100, (stats.workHours / WORK_GOAL) * 100).toFixed(0)}% REACHED</span>
+                    </div>
+                    <div className="h-4 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                        <div 
+                            className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-1000" 
+                            style={{ width: `${Math.min(100, (stats.workHours / WORK_GOAL) * 100)}%` }}
+                        />
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="shadow-md border-slate-200 overflow-hidden relative">
+                <div className="absolute top-0 right-0 p-4">
+                    <Zap className="w-8 h-8 text-orange-100" />
+                </div>
+                <CardHeader className="pb-0">
+                    <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <CalendarDays className="w-5 h-5 text-orange-600" />
+                        Availability Quota
+                    </CardTitle>
+                    <CardDescription className="font-bold">Goal: {AVAIL_GOAL} Hours</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
+                    <div className="flex justify-between items-end mb-2">
+                        <span className="text-3xl font-black text-slate-900">{stats.availableHours.toFixed(1)} <span className="text-sm text-slate-400">HRS</span></span>
+                        <span className="text-sm font-bold text-orange-600">{Math.min(100, (stats.availableHours / AVAIL_GOAL) * 100).toFixed(0)}% REACHED</span>
+                    </div>
+                    <div className="h-4 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                        <div 
+                            className="h-full bg-gradient-to-r from-orange-500 to-orange-600 transition-all duration-1000" 
+                            style={{ width: `${Math.min(100, (stats.availableHours / AVAIL_GOAL) * 100)}%` }}
+                        />
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+
+        {/* ───────────────── 2.6 Active Task Timer ───────────────── */}
+        {stats.currentTaskStart && (
+            <Card className="bg-slate-900 text-white overflow-hidden border-none shadow-xl animate-pulse ring-4 ring-emerald-500/20">
+                <CardContent className="p-0">
+                    <div className="flex flex-col md:flex-row">
+                        <div className="bg-emerald-600 px-8 py-6 flex flex-col items-center justify-center shrink-0">
+                            <Clock className="w-10 h-10 text-white animate-spin-slow mb-2" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-100">Active Duty</span>
+                        </div>
+                        <div className="p-8 flex-1 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                            <div>
+                                <h3 className="text-xl font-black tracking-tight mb-1">Current Task Performance</h3>
+                                <p className="text-slate-400 text-sm font-medium">Session accurately recorded for monthly quotas.</p>
+                            </div>
+                            <div className="flex flex-col items-end">
+                                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Session Duration</p>
+                                <ActiveTimer startTime={stats.currentTaskStart} />
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* ───────────────── 3. Activity Heatmap ───────────────── */}
           <Card className="lg:col-span-2 shadow-md border-slate-200">
@@ -232,7 +377,7 @@ export default function EmployeeDashboardPage() {
                     <div key={weekIdx} className="flex flex-col gap-[3px]">
                       {Array.from({ length: 7 }).map((_, dayIdx) => {
                         const idx = weekIdx * 7 + dayIdx;
-                        const intensity = HEATMAP_DATA[idx] ?? 0;
+                        const intensity = heatmapData[idx] ?? 0;
                         return (
                           <div
                             key={dayIdx}

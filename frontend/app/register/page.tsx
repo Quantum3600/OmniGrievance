@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
-import { ShieldAlert, ArrowLeft, Mail, KeyRound, UserRound, Phone, MapPin, Hash } from "lucide-react";
+import { ShieldAlert, ArrowLeft, Mail, KeyRound, UserRound, Phone, MapPin, Hash, Home } from "lucide-react";
 import Link from "next/link";
 
 export default function RegisterPage() {
@@ -49,17 +49,13 @@ export default function RegisterPage() {
       <div className="w-full max-w-2xl space-y-8">
         
         {/* Back to Home / Login */}
-        <div className="flex justify-between items-center text-sm font-medium">
-          <Link
-            href="/"
-            className="inline-flex items-center text-slate-500 hover:text-orange-600 transition-colors group"
-          >
-            <ArrowLeft className="w-4 h-4 mr-1.5 group-hover:-translate-x-1 transition-transform" />
-            Back to Home
+        <div className="flex justify-between items-center gap-4">
+          <Link href="/" className="flex items-center gap-2 px-5 py-2 bg-white border-2 border-slate-200 text-slate-600 font-bold rounded-xl hover:border-orange-500 hover:text-orange-600 transition-all shadow-sm group">
+            <Home className="w-4 h-4 group-hover:scale-110 transition-transform" /> Home
           </Link>
           <Link
             href="/login"
-            className="text-slate-500 hover:text-blue-600 transition-colors"
+            className="text-slate-500 hover:text-blue-600 font-bold transition-colors"
           >
             Already have an account? Login
           </Link>

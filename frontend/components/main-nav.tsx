@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShieldAlert, Menu } from "lucide-react";
+import { ShieldAlert, Menu, LogOut, LayoutDashboard } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 export function MainNav() {
   const pathname = usePathname();
+  const { user, logout } = useAuth(false);
 
   // Hide the nav action buttons on these specific routes
   const hideActionButtons = pathname === "/login" || pathname === "/register";
@@ -35,19 +37,46 @@ export function MainNav() {
             <>
               {/* Desktop Nav Links */}
               <div className="hidden md:flex items-center space-x-1">
-                <Link
-                  href="/"
-                  className="px-3 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:text-orange-600 hover:bg-orange-50 transition-all"
-                >
-                  Home
-                </Link>
-                <div className="w-px h-6 bg-slate-200 mx-2" />
-                <Link
-                  href="/login"
-                  className="px-5 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 shadow-sm hover:shadow-md transition-all"
-                >
-                  Login / Register
-                </Link>
+                {user ? (
+                  <div className="flex items-center space-x-1">
+                    <Link
+                      href="/"
+                      className="px-3 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:text-orange-600 hover:bg-orange-50 transition-all"
+                    >
+                      Home
+                    </Link>
+                    <div className="w-px h-6 bg-slate-200 mx-2" />
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={
+                          user.role === "ADMIN"
+                            ? "/admin"
+                            : user.role === "EMPLOYEE"
+                            ? "/employee/dashboard"
+                            : "/user/tracker"
+                        }
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-slate-900 text-white hover:bg-slate-800 transition-all shadow-sm"
+                      >
+                        <LayoutDashboard className="w-4 h-4" />
+                        Dashboard
+                      </Link>
+                      <button
+                        onClick={logout}
+                        className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                        title="Logout"
+                      >
+                        <LogOut className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <Link
+                    href="/login"
+                    className="px-5 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 shadow-sm hover:shadow-md transition-all"
+                  >
+                    Login / Register
+                  </Link>
+                )}
               </div>
 
               {/* Mobile menu button */}

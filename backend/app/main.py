@@ -1,8 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select
 from app.api import auth, grievances
-from app.database import engine
-from app.models import Base
+from app.database import engine, AsyncSessionLocal
+from app.models import Base, User, RoleEnum
+from app.api.auth import get_password_hash
+import os
+
+ADMIN_ID = os.getenv("ADMIN_ID")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
 app = FastAPI(
     title="OmniGrievance API",
@@ -16,28 +22,16 @@ async def startup_db_init():
         # Initialize tables automatically on container boot for local MVP testing
         await conn.run_sync(Base.metadata.create_all)
         
-    # Automatically Seed Pre-programmed Admin
-    from sqlalchemy.ext.asyncio import AsyncSession
-    from sqlalchemy.future import select
-    from app.database import AsyncSessionLocal
-    from app.models import User, RoleEnum
-    import os
-    
-    ADMIN_ID = os.getenv("ADMIN_ID")
-    ADMIN_PWD = os.getenv("ADMIN_PASSWORD")
-    
-    if not ADMIN_ID or not ADMIN_PWD:
+    if not ADMIN_ID or not ADMIN_PASSWORD:
         return # Skip seeder if credentials intentionally withheld
         
-    
     async with AsyncSessionLocal() as db:
         result = await db.execute(select(User).where(User.login_id == ADMIN_ID))
         admin = result.scalars().first()
         if not admin:
-            from app.api.auth import get_password_hash
             new_admin = User(
                 login_id=ADMIN_ID,
-                hashed_password=get_password_hash(ADMIN_PWD),
+                hashed_password=get_password_hash(ADMIN_PASSWORD),
                 role=RoleEnum.ADMIN,
                 name="Systems Administrator"
             )

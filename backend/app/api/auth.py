@@ -186,6 +186,22 @@ async def complete_profile(data: CitizenProfileUpdate, current_user: User = Depe
     await db.commit()
     return {"message": "Profile updated successfully. Automatic routing systems are now fully active."}
 
+@router.get("/citizen/profile")
+async def get_citizen_profile(current_user: User = Depends(get_current_user)):
+    if current_user.role != RoleEnum.CITIZEN:
+        raise HTTPException(status_code=403, detail="Unauthorized. Strictly for Citizens.")
+        
+    return {
+        "name": current_user.name,
+        "email": current_user.email,
+        "phone": current_user.phone,
+        "address": current_user.address,
+        "pin": current_user.pin,
+        "district": current_user.district,
+        "state": current_user.state,
+        "country": current_user.country
+    }
+
 # --- ADMIN FLOW ---
 @router.post("/admin/login", response_model=TokenResponse)
 async def admin_login(data: StaffLogin, db: AsyncSession = Depends(get_db)):
@@ -224,7 +240,7 @@ async def get_employee_profile(current_user: User = Depends(get_current_user)):
         "employee_id": current_user.login_id,
         "name": current_user.name,
         "email": current_user.email,
-        "department_category": current_user.department_category.value if current_user.department_category else "UNCLASSIFIED",
+        "department_category": current_user.department_category.value if current_user.department_category else "OTHER",
         "phone": current_user.phone,
         "address": current_user.address,
         "pin": current_user.pin,

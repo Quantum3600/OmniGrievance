@@ -8,6 +8,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -39,22 +40,27 @@ export default function ProfilePage() {
     pincode: "",
   });
 
-  // Load profile from local storage if exists, else mock citizen data
+  // Load profile from API
   useEffect(() => {
-    const savedProfile = localStorage.getItem("omni_citizen_profile");
-    if (savedProfile) {
-      setFormData(JSON.parse(savedProfile));
-    } else {
-      // Mock data for "Citizen Guest"
-      setFormData({
-        fullName: "Rahul Sharma",
-        email: "rahul.s@example.in",
-        mobile: "9876543210",
-        aadhaar: "XXXX-XXXX-1234",
-        address: "Ward 14, Sector 12, Spring Colony\nNear Government School",
-        pincode: "110001",
-      });
-    }
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        const data = await apiClient("/auth/citizen/profile");
+        setFormData({
+          fullName: data.name || "",
+          email: data.email || "",
+          mobile: data.phone || "",
+          aadhaar: "", // Not supported by backend
+          address: data.address || "",
+          pincode: data.pin || "",
+        });
+      } catch (err) {
+        console.error("Failed to fetch profile:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
   }, []);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,17 +94,26 @@ export default function ProfilePage() {
     if (!isValid) return;
 
     setLoading(true);
-    // Simulate API update
-    await new Promise((r) => setTimeout(r, 1200));
-    localStorage.setItem(
-      "omni_citizen_profile",
-      JSON.stringify(formData)
-    );
-    setLoading(false);
-    setSaved(true);
-    
-    // Hide saved message after 3 seconds
-    setTimeout(() => setSaved(false), 3000);
+    try {
+      await apiClient("/auth/citizen/complete-profile", {
+        method: "POST",
+        body: JSON.stringify({
+          name: formData.fullName,
+          phone: formData.mobile,
+          address: formData.address,
+          pin: formData.pincode,
+          district: "Dynamic", // Placeholder or derived from pincode in real app
+          state: "Dynamic",    // Placeholder
+        }),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      console.error("Failed to update profile:", err);
+      alert("Failed to update profile.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

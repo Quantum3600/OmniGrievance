@@ -203,8 +203,26 @@ const banners = [
   },
 ];
 
+import { useAuth } from "@/hooks/useAuth";
+
 export default function LandingPage() {
   const [currentBanner, setCurrentBanner] = useState(0);
+  const { user } = useAuth(false);
+
+  // Dynamic Routing Logic
+  const getReportLink = () => {
+    if (!user) return "/login";
+    if (user.role === "ADMIN") return "/admin";
+    if (user.role === "EMPLOYEE") return "/employee/dashboard";
+    return "/user/report";
+  };
+
+  const getTrackLink = () => {
+    if (!user) return "/login";
+    if (user.role === "ADMIN") return "/admin";
+    if (user.role === "EMPLOYEE") return "/employee/dashboard"; // Employees don't have a tracker but have a dashboard
+    return "/user/tracker";
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -253,26 +271,30 @@ export default function LandingPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.2 }}
               >
-                <Link href="/login">
-                  <Button
-                    size="lg"
-                    className="bg-[#0071BB] hover:bg-[#005a96] text-white font-black px-12 py-8 text-xl rounded-2xl shadow-[0_20px_50px_rgba(0,113,187,0.4)] hover:shadow-[0_30px_60px_rgba(0,113,187,0.6)] transition-all hover:scale-[1.05] active:scale-[0.98] border border-[#0071BB]/50"
-                  >
-                    <Megaphone className="w-6 h-6 mr-3" />
-                    Report an Issue
-                    <ArrowRight className="w-6 h-6 ml-2" />
-                  </Button>
-                </Link>
-                <Link href="/login">
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="border-2 border-white/40 bg-white/10 backdrop-blur-xl text-white hover:bg-white hover:text-[#0071BB] hover:border-white font-black px-12 py-8 text-xl rounded-2xl transition-all shadow-xl hover:scale-[1.05]"
-                  >
-                    <BarChart3 className="w-6 h-6 mr-3" />
-                    Track Status
-                  </Button>
-                </Link>
+                {!["ADMIN", "EMPLOYEE"].includes(user?.role || "") && (
+                  <Link href={getReportLink()}>
+                    <Button
+                      size="lg"
+                      className="bg-[#0071BB] hover:bg-[#005a96] text-white font-black px-12 py-8 text-xl rounded-2xl shadow-[0_20px_50px_rgba(0,113,187,0.4)] hover:shadow-[0_30px_60px_rgba(0,113,187,0.6)] transition-all hover:scale-[1.05] active:scale-[0.98] border border-[#0071BB]/50"
+                    >
+                      <Megaphone className="w-6 h-6 mr-3" />
+                      Report an Issue
+                      <ArrowRight className="w-6 h-6 ml-2" />
+                    </Button>
+                  </Link>
+                )}
+                {user?.role !== "EMPLOYEE" && (
+                  <Link href={getTrackLink()}>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="border-2 border-white/40 bg-white/10 backdrop-blur-xl text-white hover:bg-white hover:text-[#0071BB] hover:border-white font-black px-12 py-8 text-xl rounded-2xl transition-all shadow-xl hover:scale-[1.05]"
+                    >
+                      <BarChart3 className="w-6 h-6 mr-3" />
+                      {user?.role === "ADMIN" ? "Operations Hub" : "Track Status"}
+                    </Button>
+                  </Link>
+                )}
               </motion.div>
 
               {/* Trust Indicators */}
@@ -879,31 +901,35 @@ export default function LandingPage() {
       {/* ════════════════════════════════════════════
           SECTION 7: CTA BANNER
       ════════════════════════════════════════════ */}
-      <section className="relative overflow-hidden bg-gradient-to-r from-orange-600 via-red-500 to-green-600 py-16">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSA2MCAwIEwgMCAwIDAgNjAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjA1IiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-50" />
-        <div className="relative max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-4">
-            Your Voice Matters. Report Now.
-          </h2>
-          <p className="text-lg text-white/80 mb-8 max-w-2xl mx-auto">
-            Join lakhs of citizens using OmniGrievance to make their neighborhoods better. Every report contributes to transparent governance.
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link href="/report">
-              <Button size="lg" className="bg-white text-orange-600 hover:bg-orange-50 font-bold px-8 py-6 text-base rounded-xl shadow-lg hover:shadow-xl transition-all border-0 ring-1 ring-orange-200/50">
-                <Megaphone className="w-5 h-5 mr-2" />
-                File a Grievance
-              </Button>
-            </Link>
-            <Link href="/login" className="z-10">
-              <Button size="lg" className="bg-white text-[#0071BB] hover:bg-blue-50 font-bold px-8 py-6 text-base rounded-xl shadow-lg hover:shadow-xl transition-all border-0 ring-1 ring-blue-100/50">
-                Sign In to Portal
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
+      {!["ADMIN", "EMPLOYEE"].includes(user?.role || "") && (
+        <section className="relative overflow-hidden bg-gradient-to-r from-orange-600 via-red-500 to-green-600 py-16">
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSA2MCAwIEwgMCAwIDAgNjAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjA1IiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-50" />
+          <div className="relative max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-4">
+              Your Voice Matters. Report Now.
+            </h2>
+            <p className="text-lg text-white/80 mb-8 max-w-2xl mx-auto">
+              Join lakhs of citizens using OmniGrievance to make their neighborhoods better. Every report contributes to transparent governance.
+            </p>
+            <div className="flex flex-col sm:flex-row justify-center gap-4">
+              <Link href="/report">
+                <Button size="lg" className="bg-white text-orange-600 hover:bg-orange-50 font-bold px-8 py-6 text-base rounded-xl shadow-lg hover:shadow-xl transition-all border-0 ring-1 ring-orange-200/50">
+                  <Megaphone className="w-5 h-5 mr-2" />
+                  File a Grievance
+                </Button>
+              </Link>
+              {!user && (
+                <Link href="/login" className="z-10">
+                  <Button size="lg" className="bg-white text-[#0071BB] hover:bg-blue-50 font-bold px-8 py-6 text-base rounded-xl shadow-lg hover:shadow-xl transition-all border-0 ring-1 ring-blue-100/50">
+                    Sign In to Portal
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
+              )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ════════════════════════════════════════════
           SECTION 7: TICKER / MARQUEE

@@ -1,8 +1,14 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { apiClient } from "@/lib/api-client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, TrendingUp, Users, CheckCircle, ShieldAlert, MapPin } from "lucide-react";
+import { AlertTriangle, TrendingUp, Users, CheckCircle, ShieldAlert, MapPin, Search, BarChart3 } from "lucide-react";
+import Link from "next/link";
+import { GeospatialHeatmap } from "@/components/dashboard/GeospatialHeatmap";
 
 const departmentRanking = [
   { dept: "Public Works", slaRate: "94%", avgTime: "4.2 hrs", resolved: 1240 },
@@ -12,17 +18,47 @@ const departmentRanking = [
 ];
 
 export default function AdminDashboard() {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchDashboard() {
+      try {
+        const res = await apiClient("/grievance/admin/dashboard");
+        setData(res);
+      } catch (err) {
+        console.error("Dashboard fetch failed", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchDashboard();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[400px]">
+        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  const activeEmergencies = data?.active_emergencies || [];
+
   return (
     <div className="container max-w-7xl mx-auto p-4 min-h-screen">
       
-      {/* High-Priority Emergency Override Banner */}
-      <Alert variant="destructive" className="mb-6 bg-red-50 border-red-500 shadow-md">
-        <ShieldAlert className="h-5 w-5 !text-red-700" />
-        <AlertTitle className="text-red-800 font-bold ml-2 text-lg uppercase tracking-wider">Emergency Override Active</AlertTitle>
-        <AlertDescription className="text-red-700 ml-2 font-medium">
-          NLP Pipeline has flagged issue <span className="font-extrabold underline">GRV-2026-EMG1</span> (Keyword: "Live Wire") bypassing standard SLA queue. Dispatched immediately to District 3 Responder team.
-        </AlertDescription>
-      </Alert>
+      {/* High-Priority Emergency Override Banner - Only shows if real emergencies exist */}
+      {activeEmergencies.length > 0 && (
+        <Alert variant="destructive" className="mb-6 bg-red-50 border-red-500 shadow-md animate-pulse">
+          <ShieldAlert className="h-5 w-5 !text-red-700" />
+          <AlertTitle className="text-red-800 font-bold ml-2 text-lg uppercase tracking-wider">Emergency Override Active</AlertTitle>
+          <AlertDescription className="text-red-700 ml-2 font-medium">
+            NLP Pipeline has flagged <span className="font-extrabold">{activeEmergencies.length}</span> active high-stakes incidents. 
+            Latest: <span className="font-extrabold underline">GRV-{activeEmergencies[0].ticket_id}</span> ({activeEmergencies[0].description.substring(0, 50)}...) bypassing standard SLA queue.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <header className="mb-8">
         <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Executive Dashboard</h1>
@@ -55,7 +91,7 @@ export default function AdminDashboard() {
             <CardContent className="p-6 flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500 mb-1">Active Officers</p>
-                <h3 className="text-3xl font-bold text-slate-900">412</h3>
+                <h3 className="text-3xl font-bold text-slate-900">{data?.employee_performance_matrix?.length || 0}</h3>
               </div>
               <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600">
                 <Users className="w-6 h-6" />
@@ -65,8 +101,8 @@ export default function AdminDashboard() {
           <Card className="border-amber-200">
             <CardContent className="p-6 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-amber-700 mb-1">Current Surges</p>
-                <h3 className="text-3xl font-bold text-amber-600">2</h3>
+                <p className="text-sm font-medium text-amber-700 mb-1">Unassigned Queue</p>
+                <h3 className="text-3xl font-bold text-amber-600">{data?.unassigned_queue?.length || 0}</h3>
               </div>
               <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
                 <AlertTriangle className="w-6 h-6" />
@@ -78,25 +114,22 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Heatmap Placeholder */}
+        {/* Predictive Geospatial Heatmap */}
         <Card className="lg:col-span-2 border-2 border-slate-200 shadow-sm flex flex-col">
-          <CardHeader className="bg-slate-50 border-b border-slate-100">
-            <CardTitle className="text-xl">Predictive Geospatial Heatmap</CardTitle>
-            <CardDescription>AI predictions of grievance surges based on real-time ingestion.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex-grow p-0 relative min-h-[400px] bg-slate-100 flex items-center justify-center overflow-hidden">
-            {/* Mocking a map background layout */}
-            <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "url('data:image/svg+xml,%3Csvg width=\\'60\\' height=\\'60\\' viewBox=\\'0 0 60 60\\' xmlns=\\'http://www.w3.org/2000/svg\\'%3E%3Cg fill=\\'none\\' fill-rule=\\'evenodd\\'%3E%3Cg fill=\\'%239C92AC\\' fill-opacity=\\'0.4\\'%3E%3Cpath d=\\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')" }}></div>
-            
-            {/* Mock heatmap blobs */}
-            <div className="absolute top-1/4 left-1/3 w-32 h-32 bg-red-500 rounded-full opacity-40 blur-3xl mix-blend-multiply"></div>
-            <div className="absolute bottom-1/3 right-1/4 w-48 h-48 bg-amber-500 rounded-full opacity-40 blur-3xl mix-blend-multiply"></div>
-            
-            <div className="z-10 bg-white/90 backdrop-blur border border-slate-200 px-6 py-4 rounded-xl shadow-lg text-center max-w-xs">
-              <MapPin className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-              <h4 className="font-bold text-slate-800">Map Interface Disabled</h4>
-              <p className="text-sm text-slate-500 mt-1">PostGIS Spatial Routing layer requires active DB connection.</p>
+          <CardHeader className="bg-slate-50 border-b border-slate-100 p-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle className="text-xl">Predictive Geospatial Heatmap</CardTitle>
+                <CardDescription>AI predictions of grievance surges based on real-time ingestion.</CardDescription>
+              </div>
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest bg-slate-200 px-3 py-1 rounded-full">
+                <BarChart3 className="w-3.5 h-3.5" />
+                Live Matrix
+              </div>
             </div>
+          </CardHeader>
+          <CardContent className="flex-grow p-0 relative min-h-[400px]">
+            <GeospatialHeatmap data={data?.heatmap_data || []} />
           </CardContent>
         </Card>
 
@@ -134,7 +167,9 @@ export default function AdminDashboard() {
             </Table>
           </CardContent>
           <CardFooter className="bg-slate-50 border-t border-slate-100 p-4">
-            <Button variant="outline" className="w-full">View Full Leaderboards</Button>
+            <Link href="/admin/categories" className="w-full">
+              <Button variant="outline" className="w-full">View Full Leaderboards</Button>
+            </Link>
           </CardFooter>
         </Card>
       </div>

@@ -1,6 +1,6 @@
 import enum
 import datetime
-from sqlalchemy import Column, Integer, String, Enum, DateTime, JSON, ForeignKey, Float, Text, Table
+from sqlalchemy import Column, Integer, String, Enum, DateTime, JSON, ForeignKey, Float, Text, Table, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from geoalchemy2 import Geometry
@@ -17,11 +17,11 @@ class GrievanceStatusEnum(str, enum.Enum):
     ASSIGNED = "ASSIGNED"           # Step 3
     REACHED = "REACHED"             # Step 4
     IN_PROGRESS = "IN_PROGRESS"     # Step 5
-    RESOLVED = "RESOLVED"           # Step 6
+    WORK_DONE = "WORK_DONE"         # Step 6
+    RESOLVED = "RESOLVED"           # Step 7
     FAILED = "FAILED"
 
 class GrievanceCategoryEnum(str, enum.Enum):
-    UNCLASSIFIED = "UNCLASSIFIED"
     CIVIC_AMENITIES = "CIVIC_AMENITIES"   # Broken roads, street lights, water supply
     PUBLIC_HEALTH = "PUBLIC_HEALTH"       # Hospital delays, lack of medicines, sanitation
     SOCIAL_WELFARE = "SOCIAL_WELFARE"     # Pensions, ration cards, disability benefits
@@ -64,6 +64,13 @@ class User(Base):
     department_category = Column(Enum(GrievanceCategoryEnum), nullable=True)
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     reward_points = Column(Integer, default=0, nullable=False)
+    is_busy = Column(Boolean, default=False, nullable=False)
+    
+    # --- Time Tracking Metrics (Monthly) ---
+    work_seconds_month = Column(Integer, default=0, nullable=False)
+    available_seconds_month = Column(Integer, default=0, nullable=False)
+    last_duty_toggle_at = Column(DateTime, server_default=func.now(), nullable=False)
+    current_task_started_at = Column(DateTime, nullable=True)
     
     # Relation to grievances if citizen
     grievances = relationship("Grievance", back_populates="citizen", foreign_keys="Grievance.citizen_id")
@@ -83,8 +90,9 @@ class Grievance(Base):
     image_url = Column(String(500), nullable=True)
     
     # Automated Classification Matrix (Awaiting AI Override)
-    category = Column(Enum(GrievanceCategoryEnum), default=GrievanceCategoryEnum.UNCLASSIFIED, nullable=False)
+    category = Column(Enum(GrievanceCategoryEnum), default=GrievanceCategoryEnum.OTHER, nullable=False)
     status = Column(Enum(GrievanceStatusEnum), default=GrievanceStatusEnum.POSTED, nullable=False)
+    is_emergency = Column(Boolean, default=False, nullable=False)
     
     # Geolocation Data Points (Using floats for generic AI handling instead of strict PostGIS Geometry to ease prototyping)
     location_lat = Column(Float, nullable=True)

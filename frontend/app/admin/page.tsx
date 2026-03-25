@@ -132,7 +132,7 @@ export default function AdminWorkforceDashboard() {
         {/* 3. Quick Nav (Right Stack) */}
         <div className="space-y-6">
           <Card className="shadow-md border-slate-200 hover:border-blue-300 transition-colors group">
-            <Link href="/employees" className="block focus:outline-none">
+            <Link href="/admin/employees" className="block focus:outline-none">
               <CardContent className="p-6 flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <div className="p-3 bg-blue-50 rounded-xl group-hover:bg-blue-100 transition-colors">
@@ -150,7 +150,7 @@ export default function AdminWorkforceDashboard() {
 
           <Card className="shadow-md border-slate-200 hover:border-purple-300 transition-colors group">
             {/* Example route showing how to browse by category. Used ID 1 as placeholder */}
-            <Link href="/category/1" className="block focus:outline-none">
+            <Link href="/admin/categories" className="block focus:outline-none">
               <CardContent className="p-6 flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <div className="p-3 bg-purple-50 rounded-xl group-hover:bg-purple-100 transition-colors">
@@ -167,7 +167,7 @@ export default function AdminWorkforceDashboard() {
           </Card>
 
           <Card className="shadow-md border-slate-200 hover:border-emerald-300 transition-colors group bg-gradient-to-br from-white to-emerald-50/30">
-            <Link href="/admin/create-employee" className="block focus:outline-none">
+            <Link href="/admin/employees/create" className="block focus:outline-none">
               <CardContent className="p-6 flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <div className="p-3 bg-emerald-100 rounded-xl group-hover:bg-emerald-200 transition-colors shadow-sm">

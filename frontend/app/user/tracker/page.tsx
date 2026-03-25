@@ -25,95 +25,61 @@ import {
 } from "lucide-react";
 
 /* ─── Status Pipeline ─── */
-const STAGES = ["Submitted", "Under Review", "In Progress", "Resolved", "Closed"];
+const STAGES = ["Submitted", "Accepted", "Assigned", "Reached Site", "In Progress", "Completed"];
 
 const STAGE_COLORS: Record<string, string> = {
   Submitted: "bg-orange-500",
-  "Under Review": "bg-blue-500",
+  Accepted: "bg-blue-400",
+  Assigned: "bg-blue-600",
+  "Reached Site": "bg-indigo-500",
   "In Progress": "bg-amber-500",
-  Resolved: "bg-emerald-500",
-  Closed: "bg-slate-500",
+  Completed: "bg-emerald-500",
 };
 
 const BADGE_STYLES: Record<string, string> = {
   Submitted: "bg-orange-100 text-orange-800 border-orange-200",
-  "Under Review": "bg-blue-100 text-blue-800 border-blue-200",
+  Accepted: "bg-blue-50 text-blue-700 border-blue-100",
+  Assigned: "bg-blue-100 text-blue-800 border-blue-200",
+  "Reached Site": "bg-indigo-100 text-indigo-800 border-indigo-200",
   "In Progress": "bg-amber-100 text-amber-800 border-amber-200",
-  Resolved: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  Closed: "bg-slate-100 text-slate-600 border-slate-200",
+  Completed: "bg-emerald-100 text-emerald-800 border-emerald-200",
 };
 
-/* ─── Mock Data ─── */
-const MOCK_GRIEVANCES = [
-  {
-    id: "GRV-2026-0847",
-    description:
-      "Large pothole on the main road near Government School Gate. Multiple vehicles have been damaged. Children crossing are at risk.",
-    category: "Roads & Potholes",
-    location: "Sector 14, Ward B, NH-44 Junction",
-    status: "In Progress",
-    date: "2026-03-22T10:30:00",
-    images: [],
-    timeline: [
-      { stage: "Submitted", timestamp: "2026-03-22T10:30:00", note: "Grievance filed via web portal" },
-      { stage: "Under Review", timestamp: "2026-03-22T10:32:00", note: "AI classified under Roads & Transport" },
-      { stage: "In Progress", timestamp: "2026-03-23T09:15:00", note: "Assigned to Officer Rajesh Kumar (EMP-00247)" },
-    ],
-    employeeNote: "Road repair crew dispatched. Targeted completion by 26th March.",
-  },
-  {
-    id: "GRV-2026-0831",
-    description:
-      "Street light has been non-functional for 2 weeks at the colony entrance. Area becomes completely dark after 7 PM, causing safety concerns for residents.",
-    category: "Street Lighting",
-    location: "Spring Colony, Block C Entrance",
-    status: "Resolved",
-    date: "2026-03-18T14:20:00",
-    images: [],
-    timeline: [
-      { stage: "Submitted", timestamp: "2026-03-18T14:20:00", note: "Grievance filed via web portal" },
-      { stage: "Under Review", timestamp: "2026-03-18T14:22:00", note: "AI classified under Electricity/Lighting" },
-      { stage: "In Progress", timestamp: "2026-03-19T08:00:00", note: "Assigned to Electrical Dept" },
-      { stage: "Resolved", timestamp: "2026-03-20T16:45:00", note: "LED light replaced and tested" },
-    ],
-    employeeNote: "Old sodium vapor lamp replaced with 50W LED. Photo proof attached.",
-  },
-  {
-    id: "GRV-2026-0819",
-    description:
-      "Water supply has been irregular for the past 5 days. We only receive water for 30 minutes in the morning instead of the scheduled 3 hours.",
-    category: "Water Supply",
-    location: "Ward 7, Sector 22",
-    status: "Under Review",
-    date: "2026-03-24T08:10:00",
-    images: [],
-    timeline: [
-      { stage: "Submitted", timestamp: "2026-03-24T08:10:00", note: "Grievance filed via web portal" },
-      { stage: "Under Review", timestamp: "2026-03-24T08:12:00", note: "AI classified under Water Supply Board" },
-    ],
-    employeeNote: null,
-  },
-  {
-    id: "GRV-2026-0805",
-    description:
-      "Garbage has not been collected from our street for over a week. Stray dogs are spreading waste everywhere. Foul smell is unbearable.",
-    category: "Sanitation & Waste",
-    location: "Old City, Lane 3, Near Bus Stand",
-    status: "Closed",
-    date: "2026-03-10T09:00:00",
-    images: [],
-    timeline: [
-      { stage: "Submitted", timestamp: "2026-03-10T09:00:00", note: "Grievance filed via web portal" },
-      { stage: "Under Review", timestamp: "2026-03-10T09:03:00", note: "AI classified under Sanitation" },
-      { stage: "In Progress", timestamp: "2026-03-10T11:30:00", note: "Municipal sanitation team notified" },
-      { stage: "Resolved", timestamp: "2026-03-11T07:00:00", note: "Street cleaned, new bin installed" },
-      { stage: "Closed", timestamp: "2026-03-13T10:00:00", note: "Citizen confirmed resolution" },
-    ],
-    employeeNote: "Complete street sanitation done. 2 new community bins installed at both ends.",
-  },
-];
+// Mock removed - using backend
 
-type Grievance = (typeof MOCK_GRIEVANCES)[0];
+/* ─── Helper for mapping backend status ─── */
+const mapStatus = (status: string) => {
+  switch (status) {
+    case "POSTED":
+      return "Submitted";
+    case "ACCEPTED":
+      return "Accepted";
+    case "ASSIGNED":
+      return "Assigned";
+    case "REACHED":
+      return "Reached Site";
+    case "IN_PROGRESS":
+      return "In Progress";
+    case "RESOLVED":
+      return "Completed";
+    case "FAILED":
+      return "Completed";
+    default:
+      return "Submitted";
+  }
+};
+
+type Grievance = {
+  id: string;
+  description: string;
+  category: string;
+  location: string;
+  status: string;
+  date: string;
+  images: string[];
+  timeline: { stage: string; timestamp: string; note: string }[];
+  employeeNote: string | null;
+};
 
 /* ─── Status Progress Bar ─── */
 function StatusPipeline({ currentStatus }: { currentStatus: string }) {
@@ -179,7 +145,7 @@ function DetailDrawer({
         onClick={onClose}
       />
       {/* Panel */}
-      <div className="relative w-full max-w-lg bg-white shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300">
+      <div className="relative w-full max-w-lg bg-white/90 backdrop-blur-2xl shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-500 ease-out border-l border-white/20">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-slate-200 p-5 flex justify-between items-center z-10">
           <div>
@@ -300,32 +266,54 @@ function DetailDrawer({
   );
 }
 
+import { apiClient } from "@/lib/api-client";
+import { Loader2 } from "lucide-react";
+
 /* ─── Main Tracker Page ─── */
 export default function TrackerPage() {
   const [grievances, setGrievances] = useState<Grievance[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
-  const [selectedGrievance, setSelectedGrievance] = useState<Grievance | null>(
-    null
-  );
+  const [selectedGrievance, setSelectedGrievance] = useState<Grievance | null>(null);
 
-  // Load grievances (merge mock + submitted)
   useEffect(() => {
-    const saved = JSON.parse(
-      localStorage.getItem("omni_citizen_grievances") || "[]"
-    );
-    const savedWithTimeline = saved.map((g: any) => ({
-      ...g,
-      timeline: g.timeline || [
-        {
-          stage: "Submitted",
-          timestamp: g.date,
-          note: "Grievance filed via web portal",
-        },
-      ],
-      employeeNote: g.employeeNote || null,
-    }));
-    setGrievances([...savedWithTimeline, ...MOCK_GRIEVANCES]);
+    const fetchGrievances = async () => {
+      try {
+        setLoading(true);
+        const res = await apiClient("/grievance/citizen/my-tickets");
+        const transformed: Grievance[] = res.data.map((g: any) => ({
+          id: `GRV-${g.ticket_id}`,
+          description: g.description,
+          category: g.category.replace(/_/g, " "),
+          location: `${g.location_lat}, ${g.location_lng}`,
+          status: mapStatus(g.status),
+          date: g.created_at,
+          images: g.images || [],
+          timeline: [
+            {
+              stage: "Submitted",
+              timestamp: g.created_at,
+              note: "Grievance securely filed.",
+            },
+            ...(g.status !== "POSTED" ? [{
+              stage: mapStatus(g.status),
+              timestamp: g.updated_at || g.created_at,
+              note: g.status === "RESOLVED" ? "Issue resolved with completion proof." : 
+                    g.status === "FAILED" ? "Issue marked as failed during resolution." :
+                    `Tracker advanced to Step: ${mapStatus(g.status)}`,
+            }] : [])
+          ],
+          employeeNote: g.employee_note,
+        }));
+        setGrievances(transformed);
+      } catch (err) {
+        console.error("Failed to fetch grievances", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchGrievances();
   }, []);
 
   // Filtering
@@ -339,14 +327,19 @@ export default function TrackerPage() {
   });
 
   return (
-    <div className="container max-w-4xl mx-auto px-4 py-8 lg:py-12">
-      {/* Page Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_bottom_left,_var(--tw-gradient-stops))] from-slate-50 via-slate-50 to-blue-50/30">
+      <div className="container max-w-4xl mx-auto px-4 py-8 lg:py-12">
+      <div className="mb-10">
+        <div className="flex items-center gap-2 mb-3">
+          <Badge className="bg-blue-500/10 text-blue-600 border-blue-200/50 text-[10px] font-black uppercase tracking-widest px-2 py-0.5">
+            Citizen Dashboard
+          </Badge>
+        </div>
+        <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tight leading-none">
           My Grievances
         </h1>
-        <p className="text-slate-500 mt-1 text-sm font-medium">
-          Track the real-time status of all your submitted reports.
+        <p className="text-slate-500 mt-3 text-base font-semibold leading-relaxed max-w-xl">
+          Track the real-time lifecycle of your reports across interconnected agencies.
         </p>
       </div>
 
@@ -380,10 +373,16 @@ export default function TrackerPage() {
       </div>
 
       {/* Grievance Cards */}
-      <div className="space-y-5">
-        {filtered.map((g) => (
-          <Card
-            key={g.id}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+          <Loader2 className="w-10 h-10 animate-spin mb-4 text-orange-500" />
+          <p className="font-bold">Fetching your grievances...</p>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {filtered.map((g) => (
+            <Card
+              key={g.id}
             className="shadow-md border-slate-200 hover:shadow-lg hover:border-slate-300 transition-all cursor-pointer group overflow-hidden"
             onClick={() => setSelectedGrievance(g)}
           >
@@ -462,6 +461,7 @@ export default function TrackerPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Detail Drawer */}
       {selectedGrievance && (
@@ -470,6 +470,7 @@ export default function TrackerPage() {
           onClose={() => setSelectedGrievance(null)}
         />
       )}
+      </div>
     </div>
   );
 }

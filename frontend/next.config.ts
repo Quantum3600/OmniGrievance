@@ -11,8 +11,9 @@ const withSerwist = withSerwistInit({
 // Your standard Next.js configuration
 const nextConfig: NextConfig = {
   // This explicitly silences the Next.js 16 Turbopack warning
-  turbopack: {}, 
+  turbopack: {},
   reactStrictMode: true,
+  output: 'standalone'
 };
 
 // Wrap and export the config

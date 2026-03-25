@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -28,19 +28,10 @@ import {
   Locate,
 } from "lucide-react";
 import { useOfflineStorage } from "@/hooks/useOfflineStorage";
+import { useIndexedDB } from "@/hooks/useIndexedDB";
+import { apiClient } from "@/lib/api-client";
 
-const CATEGORIES = [
-  "Roads & Potholes",
-  "Water Supply",
-  "Sanitation & Waste",
-  "Street Lighting",
-  "Electricity",
-  "Drainage & Sewerage",
-  "Public Transport",
-  "Noise Pollution",
-  "Encroachment",
-  "Other",
-];
+
 
 export default function ReportPage() {
   const router = useRouter();
@@ -56,15 +47,21 @@ export default function ReportPage() {
 
   // Form fields
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("");
-  const [location, setLocation] = useState("");
+  const [categories, setCategories] = useState<string[]>([]);
+  const [category, setCategory] = useState(""); // Currently not posted since backend auto-classifies, but kept for UI sync
+  const [locationStr, setLocationStr] = useState("");
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
+
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-
-  // Voice recording state
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
-  const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  const { setItem: setDbItem, getItem: getDbItem, isReady: isDbReady } = useIndexedDB("omnigrievance-media", "drafts");
 
   // Submission
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,6 +71,19 @@ export default function ReportPage() {
 
   // GPS
   const [detectingLocation, setDetectingLocation] = useState(false);
+
+  // Fetch Categories
+  useEffect(() => {
+    const fetchCats = async () => {
+      try {
+        const res = await apiClient("/grievance/categories");
+        setCategories(res.categories || []);
+      } catch (err) {
+        setCategories(["CIVIC_AMENITIES", "PUBLIC_HEALTH", "INFRASTRUCTURE", "OTHER"]); // Fallback
+      }
+    };
+    fetchCats();
+  }, []);
 
   // Restore offline draft
   useEffect(() => {
@@ -88,51 +98,73 @@ export default function ReportPage() {
     if (description && description !== offlineDraft) {
       setStoredValue(description);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [description]);
+  }, [description, offlineDraft, setStoredValue]);
 
-  // ── Voice Recording ──
-  const startRecording = () => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Speech recognition not supported in this browser.");
-      return;
+  // Persist Media to IndexedDB
+  useEffect(() => {
+    if (isDbReady && audioBlob) {
+      setDbItem("audioBlob", audioBlob);
     }
+  }, [audioBlob, isDbReady, setDbItem]);
 
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "en-IN";
+  useEffect(() => {
+    if (isDbReady && images.length > 0) {
+      setDbItem("images", images);
+    }
+  }, [images, isDbReady, setDbItem]);
 
-    recognition.onresult = (event: any) => {
-      let finalTranscript = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        finalTranscript += event.results[i][0].transcript;
-      }
-      setTranscript(finalTranscript);
-    };
+  // Restore Media from IndexedDB
+  useEffect(() => {
+    if (isDbReady) {
+      getDbItem("audioBlob").then((blob) => {
+        if (blob) {
+          setAudioBlob(blob);
+          setTranscript("Recovered voice recording from draft.");
+        }
+      });
+      getDbItem("images").then((savedImages) => {
+        if (savedImages) {
+          setImages(savedImages);
+          setImagePreviews(savedImages.map((f: File) => URL.createObjectURL(f)));
+        }
+      });
+    }
+  }, [isDbReady]); // Run once when DB is ready
 
-    recognition.onerror = () => {
-      setIsRecording(false);
-    };
+  // ── Voice Recording Overhaul ──
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
 
-    recognition.onend = () => {
-      setIsRecording(false);
-    };
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
 
-    recognitionRef.current = recognition;
-    recognition.start();
-    setIsRecording(true);
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: "audio/wav" });
+        setAudioBlob(blob);
+        // Note: We no longer transcribe in browser to support regional dialects via backend AI
+        setTranscript("Audio recorded. Our AI will transcribe your regional dialect.");
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Recording error:", err);
+      alert("Microphone access denied or not available.");
+    }
   };
 
   const stopRecording = () => {
-    recognitionRef.current?.stop();
-    setIsRecording(false);
-    // Copy transcript to description
-    if (transcript.trim()) {
-      setDescription(transcript.trim());
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      setIsRecording(false);
     }
   };
 
@@ -174,7 +206,9 @@ export default function ReportPage() {
     setDetectingLocation(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setLocation(
+        setLat(pos.coords.latitude);
+        setLng(pos.coords.longitude);
+        setLocationStr(
           `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`
         );
         setDetectingLocation(false);
@@ -195,35 +229,32 @@ export default function ReportPage() {
     if (!canSubmit) return;
 
     if (isOffline) {
-      alert(
-        "You are offline. Your draft is saved locally and will be submitted once online."
-      );
+      alert("You are offline. Your draft is saved locally and will be submitted once online.");
       return;
     }
 
     setIsSubmitting(true);
-    // Mock submission — no backend call
-    await new Promise((r) => setTimeout(r, 1500));
-    const grievanceId = `GRV-2026-${String(Math.floor(1000 + Math.random() * 9000))}`;
-
-    // Save to local mock data
-    const existing = JSON.parse(
-      localStorage.getItem("omni_citizen_grievances") || "[]"
-    );
-    existing.push({
-      id: grievanceId,
-      description: activeDescription,
-      category: category || "Unclassified",
-      location: location || "Not specified",
-      status: "Submitted",
-      date: new Date().toISOString(),
-      images: imagePreviews,
-    });
-    localStorage.setItem("omni_citizen_grievances", JSON.stringify(existing));
-    clearStorage();
-
-    setSubmitted(grievanceId);
-    setIsSubmitting(false);
+    
+    try {
+      const formData = new FormData();
+      formData.append("description", inputMode === "voice" ? "Voice report recorded." : description);
+      if (lat !== null) formData.append("location_lat", lat.toString());
+      if (lng !== null) formData.append("location_lng", lng.toString());
+      if (images.length > 0) formData.append("image", images[0]);
+      if (audioBlob) formData.append("voice_note", audioBlob, "voice_report.wav");
+      
+      const res = await apiClient("/grievance/citizen/create", {
+        method: "POST",
+        body: formData,
+      });
+      
+      setSubmitted(`GRV-${res.ticket_id}`);
+      clearStorage();
+    } catch (err) {
+      alert("Failed to submit grievance. Ensure all mandatory fields are correct.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // ── Success Screen ──
@@ -268,8 +299,9 @@ export default function ReportPage() {
   }
 
   return (
-    <div className="container max-w-2xl mx-auto px-4 py-8 lg:py-12">
-      <Card className="shadow-xl border-slate-200 overflow-hidden">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-50/40 via-slate-50 to-orange-50/40 py-8 lg:py-12">
+      <div className="container max-w-2xl mx-auto px-4">
+        <Card className="shadow-2xl border-white/20 backdrop-blur-xl bg-white/80 overflow-hidden ring-1 ring-slate-900/5">
         {/* Offline Banner */}
         {isOffline && (
           <div
@@ -281,13 +313,18 @@ export default function ReportPage() {
           </div>
         )}
 
-        <CardHeader className="bg-slate-50 border-b border-slate-100 pb-6">
-          <CardTitle className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+        <CardHeader className="bg-gradient-to-b from-slate-50/80 to-transparent border-b border-slate-100 pb-8 pt-8">
+          <div className="flex items-center gap-2 mb-2">
+            <Badge className="bg-orange-500/10 text-orange-600 border-orange-200/50 text-[10px] font-black uppercase tracking-widest px-2 py-0.5">
+              Zero-Friction AI
+            </Badge>
+            <div className="h-px flex-1 bg-slate-200/50" />
+          </div>
+          <CardTitle className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight leading-none bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600">
             Report an Issue
           </CardTitle>
-          <CardDescription className="text-slate-600 font-medium text-base mt-2">
-            Describe the problem. Our Zero-Friction AI will automatically route
-            it — no forms, no dropdowns.
+          <CardDescription className="text-slate-500 font-semibold text-base mt-3 leading-relaxed">
+            Speak or type. Our digital nervous system handles the rest.
           </CardDescription>
         </CardHeader>
 
@@ -464,28 +501,20 @@ export default function ReportPage() {
               )}
             </div>
 
-            {/* ── Category Selector ── */}
-            <div className="space-y-2">
-              <Label
-                htmlFor="category"
-                className="text-base font-bold text-slate-800"
-              >
-                Category
-              </Label>
-              <select
-                id="category"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full rounded-xl border-2 border-slate-200 py-3 px-4 text-slate-900 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all font-medium bg-white"
-              >
-                <option value="">Auto-detect by AI (Optional)</option>
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* ── AI Intent Gating (No Dropdowns) ── */}
+            {(description.length > 10 || audioBlob) && (
+              <div className="bg-orange-50/50 border border-orange-100 rounded-xl p-4 flex items-center justify-between animate-in zoom-in-95 duration-500">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                  <span className="text-xs font-bold text-orange-800 uppercase tracking-widest">
+                    AI Intent Mapping Active
+                  </span>
+                </div>
+                <Badge className="bg-orange-500 text-white border-0 text-[10px] font-black">
+                  ZERO-FRICTION ROUTING
+                </Badge>
+              </div>
+            )}
 
             {/* ── Location ── */}
             <div className="space-y-2">
@@ -500,8 +529,8 @@ export default function ReportPage() {
                   id="location"
                   type="text"
                   placeholder="e.g. Sector 14, Ward B"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  value={locationStr}
+                  onChange={(e) => setLocationStr(e.target.value)}
                   className="flex-1 rounded-xl border-2 border-slate-200 py-3 px-4 text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all font-medium"
                 />
                 <Button
@@ -524,23 +553,24 @@ export default function ReportPage() {
             <Button
               type="submit"
               disabled={!canSubmit || isSubmitting}
-              className="w-full py-7 text-lg font-extrabold bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+              className="w-full py-8 text-xl font-black bg-gradient-to-r from-orange-500 via-rose-500 to-orange-600 hover:shadow-orange-500/30 text-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 disabled:opacity-50 active:scale-[0.98] border-t border-white/20"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Submitting...
+                  <Loader2 className="w-6 h-6 mr-3 animate-spin" />
+                  ORCHESTRATING...
                 </>
               ) : (
                 <>
-                  <Send className="w-5 h-5 mr-2" />
-                  Submit Grievance
+                  <Send className="w-6 h-6 mr-3" />
+                  SUBMIT GRIEVANCE
                 </>
               )}
             </Button>
           </form>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

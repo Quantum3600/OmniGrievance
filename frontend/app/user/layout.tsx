@@ -12,6 +12,7 @@ import {
   X,
   ChevronRight,
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const NAV_ITEMS = [
   { href: "/user/report", label: "Report Issue", icon: Megaphone },
@@ -27,11 +28,16 @@ export default function CitizenLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  
+  // Protect all citizen routes
+  const { user, loading, logout } = useAuth(true, ["CITIZEN"]);
 
   const handleLogout = () => {
-    localStorage.removeItem("omni_token");
-    router.push("/login");
+    logout();
   };
+
+  if (loading) return null; // Avoid flashing content before auth check
+
 
   return (
     <div className="flex min-h-[calc(100vh-180px)]">
