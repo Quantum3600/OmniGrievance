@@ -128,3 +128,13 @@
     @apply font-sans;
   }
 }
+
+/* Ticker marquee animation for landing page */
+@keyframes scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
