@@ -1,7 +1,8 @@
 import enum
 import datetime
-from sqlalchemy import Column, Integer, String, Enum, DateTime, JSON, ForeignKey
+from sqlalchemy import Column, Integer, String, Enum, DateTime, JSON, ForeignKey, Float, Text, Table
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from geoalchemy2 import Geometry
 from app.database import Base
 
@@ -10,12 +11,33 @@ class RoleEnum(str, enum.Enum):
     EMPLOYEE = "EMPLOYEE"
     ADMIN = "ADMIN"
 
-class StatusEnum(str, enum.Enum):
-    PENDING = "PENDING"
-    ROUTED = "ROUTED"
-    ASSIGNED = "ASSIGNED"
-    RESOLVED = "RESOLVED"
-    CLOSED = "CLOSED"
+class GrievanceStatusEnum(str, enum.Enum):
+    POSTED = "POSTED"               # Step 1
+    ACCEPTED = "ACCEPTED"           # Step 2
+    ASSIGNED = "ASSIGNED"           # Step 3
+    REACHED = "REACHED"             # Step 4
+    IN_PROGRESS = "IN_PROGRESS"     # Step 5
+    RESOLVED = "RESOLVED"           # Step 6
+    FAILED = "FAILED"
+
+class GrievanceCategoryEnum(str, enum.Enum):
+    UNCLASSIFIED = "UNCLASSIFIED"
+    CIVIC_AMENITIES = "CIVIC_AMENITIES"   # Broken roads, street lights, water supply
+    PUBLIC_HEALTH = "PUBLIC_HEALTH"       # Hospital delays, lack of medicines, sanitation
+    SOCIAL_WELFARE = "SOCIAL_WELFARE"     # Pensions, ration cards, disability benefits
+    REVENUE_AND_LAND = "REVENUE_AND_LAND" # Land record disputes, property tax, certificates
+    LAW_AND_ORDER = "LAW_AND_ORDER"       # Police inaction, traffic management, safety
+    EDUCATION = "EDUCATION"               # Mid-day meals, school infrastructure, teachers
+    INFRASTRUCTURE = "INFRASTRUCTURE"     # Public transport, electricity, internet
+    EMPLOYMENT_AND_LABOR = "EMPLOYMENT_AND_LABOR" # Minimum wage, MGNREGA, workplace safety
+    OTHER = "OTHER" # Other grievances
+
+grievance_assignments = Table(
+    'grievance_assignments',
+    Base.metadata,
+    Column('grievance_id', Integer, ForeignKey('grievances.id'), primary_key=True),
+    Column('employee_id', Integer, ForeignKey('users.id'), primary_key=True)
+)
 
 class User(Base):
     __tablename__ = "users"
@@ -39,46 +61,43 @@ class User(Base):
     state = Column(String(100), nullable=True)
     country = Column(String(50), default="INDIA", nullable=False)
     
+    department_category = Column(Enum(GrievanceCategoryEnum), nullable=True)
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     reward_points = Column(Integer, default=0, nullable=False)
     
     # Relation to grievances if citizen
     grievances = relationship("Grievance", back_populates="citizen", foreign_keys="Grievance.citizen_id")
 
-class Department(Base):
-    __tablename__ = "departments"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), unique=True, nullable=False)
-    # Spatial Jurisdiction mapping: Polygon strictly in SRID 4326 for global lat/long compatibility
-    jurisdiction_polygon = Column(Geometry('POLYGON', srid=4326), nullable=False)
-    
-    grievances = relationship("Grievance", back_populates="department")
-
 class Grievance(Base):
     __tablename__ = "grievances"
     
     id = Column(Integer, primary_key=True, index=True)
-    citizen_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    assigned_officer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    department_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
     
-    # Text extracted from NLP/Omnichannel text input
-    description = Column(String, nullable=False)
+    # Custody Chain Links
+    citizen_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    admin_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     
-    # Spatial Point representing the exact origin of the problem
-    geo_coordinates = Column(Geometry('POINT', srid=4326), nullable=False)
+    # Core Data Payload
+    description = Column(Text, nullable=False)
+    audio_url = Column(String(500), nullable=True)
+    image_url = Column(String(500), nullable=True)
     
-    # JSONB column managing state for complex parallel multi-agency handling
-    dependencies = Column(JSON, default=list, nullable=False)
+    # Automated Classification Matrix (Awaiting AI Override)
+    category = Column(Enum(GrievanceCategoryEnum), default=GrievanceCategoryEnum.UNCLASSIFIED, nullable=False)
+    status = Column(Enum(GrievanceStatusEnum), default=GrievanceStatusEnum.POSTED, nullable=False)
     
-    # AWS S3 / Local Storage reference to the multimodal proof
-    media_hash = Column(String, nullable=True)
+    # Geolocation Data Points (Using floats for generic AI handling instead of strict PostGIS Geometry to ease prototyping)
+    location_lat = Column(Float, nullable=True)
+    location_lng = Column(Float, nullable=True)
     
-    status = Column(Enum(StatusEnum), default=StatusEnum.PENDING, nullable=False)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
-
-    # Relationships
+    # Employee Post-Resolution Audit (Mandatory Proof)
+    resolution_proof_url = Column(String(500), nullable=True)
+    resolution_comments = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now())
+    
+    # SQLAlchemy Relationships
     citizen = relationship("User", foreign_keys=[citizen_id], back_populates="grievances")
-    assigned_officer = relationship("User", foreign_keys=[assigned_officer_id])
-    department = relationship("Department", back_populates="grievances")
+    admin = relationship("User", foreign_keys=[admin_id])
+    assigned_employees = relationship("User", secondary=grievance_assignments, backref="assigned_grievances", lazy="selectin")

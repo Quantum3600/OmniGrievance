@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import auth, intake, employee
-from app.api import webhook_intake
+from app.api import auth, grievances
 from app.database import engine
 from app.models import Base
 
@@ -56,9 +55,8 @@ app.add_middleware(
 
 # Mount the Router endpoints
 app.include_router(auth.router)
-app.include_router(intake.router)
-app.include_router(employee.router)
-app.include_router(webhook_intake.router)
+app.include_router(grievances.router)
+
 
 @app.get("/")
 async def health_check():

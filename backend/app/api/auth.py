@@ -14,8 +14,8 @@ from jose import jwt, JWTError
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from app.database import get_db
-from app.models import User, RoleEnum
+from app.database import AsyncSessionLocal, get_db
+from app.models import User, RoleEnum, GrievanceCategoryEnum
 from email.message import EmailMessage
 import smtplib
 
@@ -83,6 +83,7 @@ class StaffLogin(BaseModel):
 class EmployeeCreate(BaseModel):
     name: str
     email: EmailStr
+    department_category: GrievanceCategoryEnum
 
 class EmployeeProfileUpdate(BaseModel):
     phone: str
@@ -214,6 +215,24 @@ async def employee_login(data: StaffLogin, db: AsyncSession = Depends(get_db)):
     token = create_access_token({"sub": str(user.id), "role": user.role.value})
     return {"access_token": token, "token_type": "bearer", "is_profile_complete": is_profile_complete}
 
+@router.get("/employee/profile")
+async def get_employee_profile(current_user: User = Depends(get_current_user)):
+    if current_user.role != RoleEnum.EMPLOYEE:
+        raise HTTPException(status_code=403, detail="Unauthorized. Strictly for Government Employees.")
+        
+    return {
+        "employee_id": current_user.login_id,
+        "name": current_user.name,
+        "email": current_user.email,
+        "department_category": current_user.department_category.value if current_user.department_category else "UNCLASSIFIED",
+        "phone": current_user.phone,
+        "address": current_user.address,
+        "pin": current_user.pin,
+        "district": current_user.district,
+        "state": current_user.state,
+        "country": current_user.country
+    }
+
 @router.post("/employee/complete-profile")
 async def complete_employee_profile(data: EmployeeProfileUpdate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     if current_user.role != RoleEnum.EMPLOYEE:
@@ -247,7 +266,7 @@ async def create_employee(data: EmployeeCreate, current_user: User = Depends(get
     
     try:
         msg = EmailMessage()
-        msg.set_content(f"Hello {data.name},\n\nYou have been securely provisioned as a Government Employee on the OmniGrievance Portal.\n\nYour Login Credentials:\nEmployee ID: {generated_emp_id}\nPassword: {generated_password}\n\nPlease keep these credentials secure and login through the official strictly-gated Employee Portal.")
+        msg.set_content(f"Hello {data.name},\n\nYou have been securely provisioned as a Government Employee on the OmniGrievance Portal.\n\nYour Assigned Official Jurisdiction:\nDepartment Category: {data.department_category.value}\n\nYour Login Credentials:\nEmployee ID: {generated_emp_id}\nPassword: {generated_password}\n\nPlease keep these credentials secure and login through the official strictly-gated Employee Portal.")
         msg['Subject'] = 'OmniGrievance - Your Employee Credentials'
         msg['From'] = SMTP_SENDER_EMAIL
         msg['To'] = data.email
@@ -266,6 +285,7 @@ async def create_employee(data: EmployeeCreate, current_user: User = Depends(get
         name=data.name,
         email=data.email,
         role=RoleEnum.EMPLOYEE,
+        department_category=data.department_category,
         created_by_id=current_user.id
     )
     
@@ -387,3 +407,24 @@ async def employee_verify_email_change(data: EmployeeEmailChangeVerify, current_
     await redis_client.delete(f"emp_email_new:{current_user.id}")
     
     return {"message": f"Security Clearance verified. Your primary email address has been permanently updated to {data.new_email}"}
+
+
+@router.post("/logout")
+async def logout(current_user: User = Depends(get_current_user)):
+    """
+    Universal Logout Endpoint handling Admin, Employee, and Citizen identities seamlessly.
+    Since we use stateless JWT bearer tokens, true session destruction occurs structurally on the frontend UI.
+    This route authentically verifies the token is valid before safely instructing the client to erase it.
+    """
+    role_map = {
+        RoleEnum.CITIZEN: "Citizen",
+        RoleEnum.EMPLOYEE: "Government Employee",
+        RoleEnum.ADMIN: "System Administrator"
+    }
+    
+    friendly_role = role_map.get(current_user.role, "User")
+    
+    return {
+        "message": f"Session securely terminated for {friendly_role} '{current_user.name or current_user.email}'. Please wipe your local JWT token on the frontend.",
+        "role": current_user.role.value
+    }
