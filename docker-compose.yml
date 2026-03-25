@@ -26,7 +26,7 @@ services:
     build: ./backend
     container_name: omnigrievance-backend
     environment:
-      DATABASE_URL: postgresql://user:password@db:5432/omnigrievance
+      DATABASE_URL: postgresql+asyncpg://user:password@db:5432/omnigrievance
       REDIS_URL: redis://redis:6379
     ports:
       - "8000:8000"
