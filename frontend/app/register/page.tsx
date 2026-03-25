@@ -1,24 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
-import { ShieldAlert, ArrowLeft, User, Shield, Briefcase, Mail, KeyRound, UserRound, Phone, MapPin, Hash, ShieldCheck } from "lucide-react";
+import { ShieldAlert, ArrowLeft, Mail, KeyRound, UserRound, Phone, MapPin, Hash } from "lucide-react";
 import Link from "next/link";
 
 export default function RegisterPage() {
-  const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const urlRole = params.get("role");
-    if (urlRole === "CITIZEN") {
-      setRole("CITIZEN");
-    }
-  }, []);
 
   // Intelligent fields for Citizen Registration
   const [formData, setFormData] = useState({
@@ -35,10 +26,6 @@ export default function RegisterPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleRoleSelection = (selectedRole: string) => {
-    setRole(selectedRole);
-  };
-
   const handleRegisterCitizen = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -49,7 +36,7 @@ export default function RegisterPage() {
         body: JSON.stringify(formData),
       });
       localStorage.setItem("omni_token", res.access_token);
-      router.push("/dashboard"); // Redirect to citizen dashboard
+      router.push("/user/report"); // Redirect to citizen portal
     } catch (err: any) {
       setError(err.message || "Registration failed. Please try again.");
     } finally {
@@ -92,7 +79,7 @@ export default function RegisterPage() {
             Create an Account
           </h2>
           <p className="text-sm text-slate-500 max-w-lg mx-auto mb-2">
-            {!role ? "Join OmniGrievance — The Zero-Friction Civic Resolution Platform. Please select your role below to begin." : "Complete your registration to access the platform."}
+            Join OmniGrievance — The Zero-Friction Civic Resolution Platform. Complete your registration below.
           </p>
         </div>
 
@@ -108,86 +95,12 @@ export default function RegisterPage() {
 
           <div className="p-8 sm:p-10 relative z-0">
             
-            {!role ? (
-              // Step 1: Role Selection
-              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="text-center mb-6">
-                  <h3 className="text-lg font-bold text-slate-800">Who are you registering as?</h3>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  <button
-                    onClick={() => handleRoleSelection("CITIZEN")}
-                    className="flex flex-col items-center justify-center p-6 rounded-2xl border-2 border-slate-200 hover:border-orange-500 hover:bg-orange-50 hover:shadow-lg transition-all group"
-                  >
-                    <div className="w-14 h-14 rounded-full bg-slate-100 group-hover:bg-orange-200 flex items-center justify-center mb-4 transition-colors">
-                      <User className="w-7 h-7 text-slate-600 group-hover:text-orange-700" />
-                    </div>
-                    <span className="font-bold text-slate-800 group-hover:text-orange-800">Citizen (User)</span>
-                    <span className="text-xs text-slate-500 text-center mt-2 group-hover:text-orange-600">Register to report issues</span>
-                  </button>
-                  
-                  <button
-                    onClick={() => handleRoleSelection("ADMIN")}
-                    className="flex flex-col items-center justify-center p-6 rounded-2xl border-2 border-slate-200 hover:border-blue-500 hover:bg-blue-50 hover:shadow-lg transition-all group"
-                  >
-                    <div className="w-14 h-14 rounded-full bg-slate-100 group-hover:bg-blue-200 flex items-center justify-center mb-4 transition-colors">
-                      <Shield className="w-7 h-7 text-slate-600 group-hover:text-blue-700" />
-                    </div>
-                    <span className="font-bold text-slate-800 group-hover:text-blue-800">Administrator</span>
-                    <span className="text-xs text-slate-500 text-center mt-2 group-hover:text-blue-600">Global oversight portal</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleRoleSelection("EMPLOYEE")}
-                    className="flex flex-col items-center justify-center p-6 rounded-2xl border-2 border-slate-200 hover:border-green-500 hover:bg-green-50 hover:shadow-lg transition-all group"
-                  >
-                    <div className="w-14 h-14 rounded-full bg-slate-100 group-hover:bg-green-200 flex items-center justify-center mb-4 transition-colors">
-                      <Briefcase className="w-7 h-7 text-slate-600 group-hover:text-green-700" />
-                    </div>
-                    <span className="font-bold text-slate-800 group-hover:text-green-800">Govt Employee</span>
-                    <span className="text-xs text-slate-500 text-center mt-2 group-hover:text-green-600">Field officer dashboard</span>
-                  </button>
-                </div>
-              </div>
-            ) : role !== "CITIZEN" ? (
-              // Non-Citizen Registration Blocker
-              <div className="text-center py-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <ShieldCheck className="w-16 h-16 text-blue-500 mx-auto mb-6" />
-                <h3 className="text-2xl font-black text-slate-800 mb-4">Internal Accounts Only</h3>
-                <p className="text-slate-600 mb-8 max-w-md mx-auto">
-                  Administrator and Government Employee accounts are provisioned internally by the state IT department. 
-                  Direct registration is disabled for security reasons.
-                </p>
-                <div className="flex justify-center gap-4">
-                  <button
-                    onClick={() => setRole(null)}
-                    className="px-6 py-2 border-2 border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-colors"
-                  >
-                    Go Back
-                  </button>
-                  <Link href="/login">
-                    <button className="px-6 py-2 bg-blue-600 rounded-xl font-bold text-white shadow-md hover:bg-blue-700 hover:shadow-lg transition-all">
-                      Login
-                    </button>
-                  </Link>
-                </div>
-              </div>
-            ) : (
-              // Step 2: Intelligent Citizen Registration
+            {(
+              // Citizen Registration Form
               <div className="animate-in fade-in zoom-in-95 duration-500">
-                <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-100">
-                  <div>
-                    <h3 className="text-2xl font-extrabold text-slate-800">Citizen Registration</h3>
-                    <p className="text-sm text-slate-500 mt-1">Please provide the details below intelligently required for platform security.</p>
-                  </div>
-                  <button 
-                    type="button" 
-                    onClick={() => setRole(null)}
-                    className="text-xs font-bold text-orange-600 hover:text-orange-700 bg-orange-50 px-3 py-1.5 rounded-lg flex items-center transition-colors"
-                  >
-                    <ArrowLeft className="w-3 h-3 mr-1" /> Change Role
-                  </button>
+                <div className="mb-8 pb-4 border-b border-slate-100">
+                  <h3 className="text-2xl font-extrabold text-slate-800">Citizen Registration</h3>
+                  <p className="text-sm text-slate-500 mt-1">Please provide the details below required for platform security.</p>
                 </div>
 
                 <form className="space-y-6" onSubmit={handleRegisterCitizen}>

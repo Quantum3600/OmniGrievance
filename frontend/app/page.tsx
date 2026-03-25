@@ -31,6 +31,8 @@ import {
   Smartphone,
   MessageCircle,
   Monitor,
+  Droplet,
+  Truck,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -251,7 +253,7 @@ export default function LandingPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.2 }}
               >
-                <Link href="/report">
+                <Link href="/login">
                   <Button
                     size="lg"
                     className="bg-[#0071BB] hover:bg-[#005a96] text-white font-black px-12 py-8 text-xl rounded-2xl shadow-[0_20px_50px_rgba(0,113,187,0.4)] hover:shadow-[0_30px_60px_rgba(0,113,187,0.6)] transition-all hover:scale-[1.05] active:scale-[0.98] border border-[#0071BB]/50"
@@ -261,7 +263,7 @@ export default function LandingPage() {
                     <ArrowRight className="w-6 h-6 ml-2" />
                   </Button>
                 </Link>
-                <Link href="/dashboard">
+                <Link href="/login">
                   <Button
                     size="lg"
                     variant="outline"
@@ -679,7 +681,7 @@ export default function LandingPage() {
                 <h4 className="text-lg font-extrabold text-slate-900 mb-2">Severe Road Damage Repair</h4>
                 <div className="flex items-center gap-4 text-sm text-slate-500 mb-4">
                   <span className="flex items-center gap-1"><MapPin className="w-4 h-4 text-amber-500" /> NH-44 Sector Crossing</span>
-                  <span className="flex items-center gap-1"><Zap className="w-4 h-4 text-blue-500" /> Dept of Roads & Transport</span>
+                  <span className="flex items-center gap-1"><Truck className="w-4 h-4 text-blue-500" /> Dept of Roads & Transport</span>
                 </div>
                 <p className="text-sm text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-100">
                   <span className="font-bold text-slate-900">Officer Note:</span> Excavated damaged segment and relaid high-density bitumen mix. Structural integrity completely restored.
@@ -723,7 +725,7 @@ export default function LandingPage() {
                 <h4 className="text-lg font-extrabold text-slate-900 mb-2">Main Water Pipeline Burst</h4>
                 <div className="flex items-center gap-4 text-sm text-slate-500 mb-4">
                   <span className="flex items-center gap-1"><MapPin className="w-4 h-4 text-amber-500" /> Ward 14, Primary Market</span>
-                  <span className="flex items-center gap-1"><Zap className="w-4 h-4 text-blue-500" /> Water Supply Board (BWSSB)</span>
+                  <span className="flex items-center gap-1"><Droplet className="w-4 h-4 text-blue-500" /> Water Supply Board (BWSSB)</span>
                 </div>
                 <p className="text-sm text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-100">
                   <span className="font-bold text-slate-900">Officer Note:</span> Main supply line valve replaced and leak sealed. Water pressure restored to normal parameters across the ward.
