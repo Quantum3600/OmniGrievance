@@ -1,13 +1,43 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import auth, intake, employee
-from app.api import webhook_intake
+from sqlalchemy import select
+from app.api import auth, grievances, ingestion
+from app.database import engine, AsyncSessionLocal
+from app.models import Base, User, RoleEnum
+from app.api.auth import get_password_hash
+from fastapi.staticfiles import StaticFiles
+import os
+
+ADMIN_ID = os.getenv("ADMIN_ID")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
 app = FastAPI(
     title="OmniGrievance API",
     description="The core routing and orchestration engine for civic issue resolution.",
     version="1.0.0"
 )
+
+@app.on_event("startup")
+async def startup_db_init():
+    async with engine.begin() as conn:
+        # Initialize tables automatically on container boot for local MVP testing
+        await conn.run_sync(Base.metadata.create_all)
+        
+    if not ADMIN_ID or not ADMIN_PASSWORD:
+        return # Skip seeder if credentials intentionally withheld
+        
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(User).where(User.login_id == ADMIN_ID))
+        admin = result.scalars().first()
+        if not admin:
+            new_admin = User(
+                login_id=ADMIN_ID,
+                hashed_password=get_password_hash(ADMIN_PASSWORD),
+                role=RoleEnum.ADMIN,
+                name="Systems Administrator"
+            )
+            db.add(new_admin)
+            await db.commit()
 
 # Global CORS config for the Web/PWA App
 app.add_middleware(
@@ -20,9 +50,14 @@ app.add_middleware(
 
 # Mount the Router endpoints
 app.include_router(auth.router)
-app.include_router(intake.router)
-app.include_router(employee.router)
-app.include_router(webhook_intake.router)
+app.include_router(grievances.router)
+app.include_router(ingestion.router)
+
+# Serve uploaded media (Images/Audio) for the PWA dashboard
+if not os.path.exists("uploads"):
+    os.makedirs("uploads")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 
 @app.get("/")
 async def health_check():
