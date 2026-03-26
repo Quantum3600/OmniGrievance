@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
-from app.api import auth, grievances
+from app.api import auth, grievances, ingestion
 from app.database import engine, AsyncSessionLocal
 from app.models import Base, User, RoleEnum
 from app.api.auth import get_password_hash
@@ -50,6 +50,7 @@ app.add_middleware(
 # Mount the Router endpoints
 app.include_router(auth.router)
 app.include_router(grievances.router)
+app.include_router(ingestion.router)
 
 
 @app.get("/")
