@@ -76,6 +76,12 @@ export function useAuth(requireAuth = true, allowedRoles?: string[]) {
     localStorage.removeItem("omni_token");
     localStorage.removeItem("omni_profile_complete");
     localStorage.removeItem("omni_role");
+    localStorage.removeItem("omnigrievance-draft");
+    try {
+      if (typeof window !== "undefined" && window.indexedDB) {
+        window.indexedDB.deleteDatabase("omnigrievance-media");
+      }
+    } catch (e) {}
     setUser(null);
     router.push("/login");
   };

@@ -440,6 +440,10 @@ async def logout(current_user: User = Depends(get_current_user)):
     
     friendly_role = role_map.get(current_user.role, "User")
     
+    # Clear any active WhatsApp session if phone is registered
+    if current_user.phone:
+        await redis_client.delete(f"wa_session:{current_user.phone}")
+    
     return {
         "message": f"Session securely terminated for {friendly_role} '{current_user.name or current_user.email}'. Please wipe your local JWT token on the frontend.",
         "role": current_user.role.value

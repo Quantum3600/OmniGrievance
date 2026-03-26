@@ -10,7 +10,7 @@ from sqlalchemy import func
 
 from app.database import get_db, AsyncSessionLocal
 from app.models import User, RoleEnum, Grievance, GrievanceStatusEnum, GrievanceCategoryEnum
-from app.api.auth import get_current_user
+from app.api.auth import get_current_user, redis_client
 
 EMERGENCY_KEYWORDS = ["live wire", "gas leak", "structural collapse", "fire", "accident", "medical emergency"]
 
@@ -68,6 +68,11 @@ async def create_grievance(
     db.add(new_grievance)
     await db.commit()
     await db.refresh(new_grievance)
+    
+    # NEW: Clear active Redis WhatsApp session after successful web submission
+    if current_user.phone:
+        await redis_client.delete(f"wa_session:{current_user.phone}")
+        
     return {"message": "Grievance securely uploaded. Tracker at STEP 1: Posted.", "ticket_id": new_grievance.id, "tracker_step": 1}
 
 

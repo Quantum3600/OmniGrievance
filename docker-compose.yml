@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   # PostGIS Database for spatial querying and public records
@@ -30,6 +29,9 @@ services:
     container_name: omnigrievance-backend
     env_file:
       - ./backend/.env
+    environment:
+      # Explicit override — ensures mock mode even if .env has CRLF issues on Windows
+      USE_MOCK_APIS: "false"
     ports:
       - "8000:8000"
     depends_on:

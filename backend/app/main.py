@@ -5,6 +5,7 @@ from app.api import auth, grievances, ingestion
 from app.database import engine, AsyncSessionLocal
 from app.models import Base, User, RoleEnum
 from app.api.auth import get_password_hash
+from fastapi.staticfiles import StaticFiles
 import os
 
 ADMIN_ID = os.getenv("ADMIN_ID")
@@ -51,6 +52,11 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(grievances.router)
 app.include_router(ingestion.router)
+
+# Serve uploaded media (Images/Audio) for the PWA dashboard
+if not os.path.exists("uploads"):
+    os.makedirs("uploads")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 @app.get("/")
