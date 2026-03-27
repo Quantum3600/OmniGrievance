@@ -1,4 +1,5 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const isDev = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || (isDev ? "http://localhost:8000" : "https://omnigrievance.onrender.com");
 
 export const apiClient = async (endpoint: string, options: RequestInit = {}) => {
   let token = null;

@@ -36,28 +36,28 @@ import {
 } from "lucide-react";
 import { useOfflineStorage } from "@/hooks/useOfflineStorage";
 import { useIndexedDB } from "@/hooks/useIndexedDB";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, API_URL } from "@/lib/api-client";
 
 // ─── AI Processing Steps for Animated Display ───
 const AI_STEPS = [
   { id: "transcribe", icon: Languages, label: "Transcribing audio input…", done: "Audio digitized" },
-  { id: "vision",     icon: ScanSearch,   label: "Analyzing image evidence…",  done: "Image processed" },
-  { id: "nlp",        icon: Brain,         label: "Running semantic intent mapping (BERT)…", done: "Intent classified" },
-  { id: "route",      icon: Route,         label: "Routing to correct department…", done: "Auto-routed" },
-  { id: "save",       icon: CheckCheck,    label: "Securing grievance in database…", done: "Saved securely" },
+  { id: "vision", icon: ScanSearch, label: "Analyzing image evidence…", done: "Image processed" },
+  { id: "nlp", icon: Brain, label: "Running semantic intent mapping (BERT)…", done: "Intent classified" },
+  { id: "route", icon: Route, label: "Routing to correct department…", done: "Auto-routed" },
+  { id: "save", icon: CheckCheck, label: "Securing grievance in database…", done: "Saved securely" },
 ];
 
 // ─── Category display metadata ───
 const CATEGORY_META: Record<string, { label: string; color: string }> = {
-  CIVIC_AMENITIES:     { label: "Civic Amenities",      color: "bg-blue-100 text-blue-800 border-blue-200" },
-  PUBLIC_HEALTH:       { label: "Public Health",         color: "bg-rose-100 text-rose-800 border-rose-200" },
-  INFRASTRUCTURE:      { label: "Infrastructure",        color: "bg-violet-100 text-violet-800 border-violet-200" },
-  LAW_AND_ORDER:       { label: "Law & Order",           color: "bg-red-100 text-red-800 border-red-200" },
-  SOCIAL_WELFARE:      { label: "Social Welfare",        color: "bg-amber-100 text-amber-800 border-amber-200" },
-  REVENUE_AND_LAND:    { label: "Revenue & Land",        color: "bg-yellow-100 text-yellow-800 border-yellow-200" },
-  EDUCATION:           { label: "Education",             color: "bg-teal-100 text-teal-800 border-teal-200" },
-  EMPLOYMENT_AND_LABOR:{ label: "Employment & Labour",   color: "bg-indigo-100 text-indigo-800 border-indigo-200" },
-  OTHER:               { label: "Other",                 color: "bg-slate-100 text-slate-700 border-slate-200" },
+  CIVIC_AMENITIES: { label: "Civic Amenities", color: "bg-blue-100 text-blue-800 border-blue-200" },
+  PUBLIC_HEALTH: { label: "Public Health", color: "bg-rose-100 text-rose-800 border-rose-200" },
+  INFRASTRUCTURE: { label: "Infrastructure", color: "bg-violet-100 text-violet-800 border-violet-200" },
+  LAW_AND_ORDER: { label: "Law & Order", color: "bg-red-100 text-red-800 border-red-200" },
+  SOCIAL_WELFARE: { label: "Social Welfare", color: "bg-amber-100 text-amber-800 border-amber-200" },
+  REVENUE_AND_LAND: { label: "Revenue & Land", color: "bg-yellow-100 text-yellow-800 border-yellow-200" },
+  EDUCATION: { label: "Education", color: "bg-teal-100 text-teal-800 border-teal-200" },
+  EMPLOYMENT_AND_LABOR: { label: "Employment & Labour", color: "bg-indigo-100 text-indigo-800 border-indigo-200" },
+  OTHER: { label: "Other", color: "bg-slate-100 text-slate-700 border-slate-200" },
 };
 
 // ─── Submission result returned by backend ───
@@ -98,22 +98,20 @@ function AiStepsIndicator({
         return (
           <div
             key={step.id}
-            className={`flex items-center gap-3 p-3 rounded-xl border transition-all duration-500 ${
-              isDone
-                ? "bg-emerald-50 border-emerald-200 opacity-100"
-                : isActive
+            className={`flex items-center gap-3 p-3 rounded-xl border transition-all duration-500 ${isDone
+              ? "bg-emerald-50 border-emerald-200 opacity-100"
+              : isActive
                 ? "bg-orange-50 border-orange-200 shadow-sm"
                 : "bg-slate-50 border-slate-100 opacity-40"
-            }`}
+              }`}
           >
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                isDone
-                  ? "bg-emerald-500 text-white"
-                  : isActive
+              className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isDone
+                ? "bg-emerald-500 text-white"
+                : isActive
                   ? "bg-orange-500 text-white animate-pulse"
                   : "bg-slate-200 text-slate-400"
-              }`}
+                }`}
             >
               {isDone ? (
                 <CheckCircle2 className="w-4 h-4" />
@@ -161,13 +159,12 @@ function AiResultPanel({ result }: { result: SubmitResult }) {
         <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-1">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AI Priority</p>
           <Badge
-            className={`text-xs font-bold border ${
-              result.priority === "High"
-                ? "bg-red-100 text-red-800 border-red-200"
-                : result.priority === "Medium"
+            className={`text-xs font-bold border ${result.priority === "High"
+              ? "bg-red-100 text-red-800 border-red-200"
+              : result.priority === "Medium"
                 ? "bg-amber-100 text-amber-800 border-amber-200"
                 : "bg-slate-100 text-slate-700 border-slate-200"
-            }`}
+              }`}
           >
             {result.priority}
           </Badge>
@@ -184,11 +181,10 @@ function AiResultPanel({ result }: { result: SubmitResult }) {
 
       {/* Auto-routed */}
       <div
-        className={`flex items-center gap-3 rounded-xl p-3 border ${
-          result.auto_routed
-            ? "bg-emerald-50 border-emerald-200"
-            : "bg-amber-50 border-amber-200"
-        }`}
+        className={`flex items-center gap-3 rounded-xl p-3 border ${result.auto_routed
+          ? "bg-emerald-50 border-emerald-200"
+          : "bg-amber-50 border-amber-200"
+          }`}
       >
         <Route className={`w-5 h-5 flex-shrink-0 ${result.auto_routed ? "text-emerald-600" : "text-amber-600"}`} />
         <p className={`text-sm font-bold ${result.auto_routed ? "text-emerald-700" : "text-amber-700"}`}>
@@ -212,6 +208,8 @@ function AiResultPanel({ result }: { result: SubmitResult }) {
     </div>
   );
 }
+
+
 
 export default function ReportPage() {
   const router = useRouter();
@@ -247,7 +245,7 @@ export default function ReportPage() {
   // ── Restore drafts ──
   useEffect(() => {
     if (offlineDraft && description === "") setDescription(offlineDraft);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offlineDraft]);
 
   useEffect(() => {
@@ -274,7 +272,7 @@ export default function ReportPage() {
         }
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDbReady]);
 
   // ── Voice Recording ──
@@ -363,18 +361,6 @@ export default function ReportPage() {
       return true;
     });
 
-    // Simulate sequential step progression while request is running
-    const stepTimer = async () => {
-      for (let i = 0; i < filteredSteps.length - 1; i++) {
-        setAiCurrentStep(i);
-        await new Promise((r) => setTimeout(r, 900));
-        markDone(filteredSteps[i].id);
-      }
-      setAiCurrentStep(filteredSteps.length - 1);
-    };
-    
-    const timerPromise = stepTimer();
-
     try {
       const formData = new FormData();
       formData.append("text_description", inputMode === "voice" ? (transcript || "Voice report submitted.") : description);
@@ -388,30 +374,108 @@ export default function ReportPage() {
         body: formData,
       });
 
-      await timerPromise;
-      // Mark last step done
-      markDone(filteredSteps[filteredSteps.length - 1].id);
-      await new Promise((r) => setTimeout(r, 400));
-
-      setAiResult({
-        grievance_id: res.grievance_id,
-        category: res.category,
-        priority: res.priority,
-        is_emergency: res.is_emergency,
-        auto_routed: res.auto_routed,
-        ai_labels: res.ai_labels || [],
-        transcription: res.transcription,
-      });
-
-      clearStorage();
-      if (isDbReady) {
-        removeDbItem("audioBlob").catch(e => console.error(e));
-        removeDbItem("images").catch(e => console.error(e));
+      if (!res.task_id) {
+        throw new Error("No task processing ID received");
       }
+
+      const wsUrl = API_URL.replace(/^http/, "ws") + `/api/v1/ingest/ws/status/${res.task_id}`;
+
+      const ws = new WebSocket(wsUrl);
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          const s = data.stage;
+
+          if (s === "transcribing") {
+            const idx = filteredSteps.findIndex(st => st.id === "transcribe");
+            if (idx !== -1) setAiCurrentStep(idx);
+          } else if (s === "classifying") {
+            markDone("transcribe");
+            const idxVis = filteredSteps.findIndex(st => st.id === "vision");
+            const idxNlp = filteredSteps.findIndex(st => st.id === "nlp");
+
+            if (idxVis !== -1) {
+              setAiCurrentStep(idxVis);
+              setTimeout(() => {
+                setAiCurrentStep((curr) => (curr === idxVis ? idxNlp : curr));
+                markDone("vision");
+              }, 1500);
+            } else if (idxNlp !== -1) {
+              setAiCurrentStep(idxNlp);
+            }
+          } else if (s === "routing") {
+            markDone("transcribe");
+            markDone("vision");
+            markDone("nlp");
+            const idx = filteredSteps.findIndex(st => st.id === "route");
+            if (idx !== -1) setAiCurrentStep(idx);
+          } else if (s === "done") {
+            markDone("transcribe");
+            markDone("vision");
+            markDone("nlp");
+            markDone("route");
+            const saveIdx = filteredSteps.findIndex(st => st.id === "save");
+            if (saveIdx !== -1) {
+              setAiCurrentStep(saveIdx);
+              setTimeout(() => {
+                markDone("save");
+                if (data.result) {
+                  setAiResult({
+                    grievance_id: data.result.grievance_id,
+                    category: data.result.category,
+                    priority: data.result.priority,
+                    is_emergency: data.result.is_emergency,
+                    auto_routed: data.result.auto_routed,
+                    ai_labels: data.result.ai_labels || [],
+                    transcription: data.result.transcription,
+                  });
+                }
+                clearStorage();
+                if (isDbReady) {
+                  removeDbItem("audioBlob").catch(e => console.error(e));
+                  removeDbItem("images").catch(e => console.error(e));
+                }
+                setIsSubmitting(false);
+                ws.close();
+              }, 800);
+            } else {
+              if (data.result) {
+                setAiResult({
+                  grievance_id: data.result.grievance_id,
+                  category: data.result.category,
+                  priority: data.result.priority,
+                  is_emergency: data.result.is_emergency,
+                  auto_routed: data.result.auto_routed,
+                  ai_labels: data.result.ai_labels || [],
+                  transcription: data.result.transcription,
+                });
+              }
+              clearStorage();
+              if (isDbReady) {
+                removeDbItem("audioBlob").catch(e => console.error(e));
+                removeDbItem("images").catch(e => console.error(e));
+              }
+              setIsSubmitting(false);
+              ws.close();
+            }
+          } else if (s === "error") {
+            alert(`Processing failed: ${data.message || "Unknown error."}`);
+            setIsSubmitting(false);
+            ws.close();
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      };
+
+      ws.onerror = () => {
+        alert("Real-time tracking connection lost, but your report might be submitted. Check the tracker page later.");
+        setIsSubmitting(false);
+      };
+
     } catch (err: any) {
       alert(`Submission failed: ${err.message || "Unknown error. Please retry."}`);
-      setIsSubmitting(false);
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -523,18 +587,16 @@ export default function ReportPage() {
                 <button
                   type="button"
                   onClick={() => setInputMode("text")}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-all ${
-                    inputMode === "text" ? "bg-white text-orange-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                  }`}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-all ${inputMode === "text" ? "bg-white text-orange-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                    }`}
                 >
                   <Type className="w-4 h-4" /> Text Mode
                 </button>
                 <button
                   type="button"
                   onClick={() => setInputMode("voice")}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-all ${
-                    inputMode === "voice" ? "bg-white text-orange-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                  }`}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-all ${inputMode === "voice" ? "bg-white text-orange-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                    }`}
                 >
                   <Mic className="w-4 h-4" /> Voice Mode
                 </button>
@@ -570,11 +632,10 @@ export default function ReportPage() {
                     <button
                       type="button"
                       onClick={isRecording ? stopRecording : startRecording}
-                      className={`w-24 h-24 rounded-full flex items-center justify-center shadow-xl transition-all ${
-                        isRecording
-                          ? "bg-red-500 hover:bg-red-600 animate-pulse shadow-red-500/40"
-                          : "bg-gradient-to-br from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-orange-500/30"
-                      }`}
+                      className={`w-24 h-24 rounded-full flex items-center justify-center shadow-xl transition-all ${isRecording
+                        ? "bg-red-500 hover:bg-red-600 animate-pulse shadow-red-500/40"
+                        : "bg-gradient-to-br from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-orange-500/30"
+                        }`}
                     >
                       {isRecording ? <MicOff className="w-10 h-10 text-white" /> : <Mic className="w-10 h-10 text-white" />}
                     </button>
