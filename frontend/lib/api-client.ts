@@ -1,5 +1,5 @@
-// const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://omnigrievance.onrender.com";
-const API_URL = "https://omnigrievance.onrender.com";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://omnigrievance.onrender.com";
+// const API_URL = "https://omnigrievance.onrender.com";
 
 
 export const apiClient = async (endpoint: string, options: RequestInit = {}) => {
