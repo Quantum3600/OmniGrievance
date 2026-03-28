@@ -42,9 +42,12 @@ async def startup_db_init():
 # Global CORS config for the Web/PWA App
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000","https://omnigrievance-site.onrender.com"], # Link to Next.js Frontend
+    allow_origins=[
+        "http://localhost:3000",
+        "https://omnigrievance-site.onrender.com"
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
