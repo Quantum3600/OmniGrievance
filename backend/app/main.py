@@ -11,7 +11,7 @@ import os
 
 ADMIN_ID = os.getenv("ADMIN_ID")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000","https://omnigrievance-site.onrender.com")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
